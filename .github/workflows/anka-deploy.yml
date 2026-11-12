@@ -120,6 +120,11 @@ jobs:
                 Write-Host "$($entry.title): imported=$($entry.imported)"
               }
               if ($catalog.ready -lt $catalog.total) { Write-Warning "Some Wikisource imports are still pending or failed. The preview cards remain available." }
+              $book = Invoke-RestMethod -Uri 'http://localhost/api/books/2871f572-093a-f46f-bc1f-b325cdcdbeae/reading-status' -Headers @{ Host = $env:IIS_SITE } -TimeoutSec 20
+              Write-Host "Required Pembe Incili Kaftan full reader: pages=$($book.pages) characters=$($book.characters)"
+              if ($book.pages -lt 2 -or $book.characters -lt 2000) {
+                throw "Reader check failed: required book did not render as a full multi-page text."
+              }
             } catch {
               Write-Warning "Could not inspect curated catalog status: $($_.Exception.Message)"
             }
