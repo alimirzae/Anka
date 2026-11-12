@@ -33,3 +33,18 @@ Write-Host "IIS Full Control on Anka folder: $poolAccount"
 Write-Host "Runner Modify on Anka folder: NT AUTHORITY\NETWORK SERVICE"
 Write-Host "SQLite database will be created automatically at: $sitePath\App_Data\anka.db"
 Write-Host 'No MySQL, connection string, or appsettings.Production.json required.'
+
+# Recycle only Anka to apply the pool identity and create the SQLite database.
+Restart-WebAppPool -Name $poolName
+Start-Sleep -Seconds 3
+try {
+  $response = Invoke-WebRequest -Uri "http://localhost/api/health" -Headers @{ Host = $siteName } -UseBasicParsing -TimeoutSec 20
+  Write-Host "Anka HTTP health: $($response.StatusCode) $($response.Content)"
+} catch {
+  Write-Warning "Anka still returned an error: $($_.Exception.Message)"
+  Write-Host "Recent ASP.NET Core Module errors:"
+  Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddMinutes(-20) } -ErrorAction SilentlyContinue |
+    Where-Object { $_.ProviderName -match 'IIS AspNetCore Module|IIS Express AspNetCore Module' } |
+    Select-Object -First 5 TimeCreated, Id, Message | Format-List
+  Write-Warning "If ASP.NET Core Hosting Bundle is missing, install the .NET 10 Hosting Bundle."
+}
