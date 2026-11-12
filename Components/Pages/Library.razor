@@ -82,7 +82,7 @@
  {
   <button class="library-book" @key="book.Id" @onclick="() => OpenBook(book.Id)">
    <div class="small-cover"><span>ANKA</span><strong>@book.Title</strong><small>@book.Author</small></div>
-   <strong>@book.Title</strong><small>@book.Author · @book.Language</small>
+   <strong>@book.Title</strong><small>@book.Author · @LanguageName(book.Language)</small>
    <span class="library-open">@L.T("continue") ←</span>
   </button>
  }
@@ -96,6 +96,15 @@
  protected override void OnInitialized() => L.Changed += Updated;
  private void Updated() => _ = InvokeAsync(StateHasChanged);
  private void SetFilter(string key) => filter=key;
+ private static string LanguageName(string code) => code switch
+ {
+  "tr" => "Türkçe",
+  "az" or "az-Latn" => "Az.Turkce",
+  "az-Arab" => "تورکجه",
+  "fa" => "فارسی",
+  "en" => "English",
+  _ => code
+ };
  private void OpenBook(string id) => Nav.NavigateTo("/read/"+id);
  protected override async Task OnInitializedAsync()
  {
