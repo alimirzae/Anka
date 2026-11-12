@@ -1,25 +1,47 @@
 @page "/upload"
+@implements IDisposable
+@inject UiText L
 @inject IJSRuntime Js
 @inject NavigationManager Nav
-<div class="intro"><p class="eyebrow">ANKA COLLECTION</p><h1>افزودن کتاب EPUB</h1></div>
+
+<div class="intro">
+ <p class="eyebrow">ANKA COLLECTION</p>
+ <h1>@L.T("uploadTitle")</h1>
+ <p>@L.T("uploadHelp")</p>
+</div>
 <div class="form">
- <label for="uploadFile">فایل EPUB</label><input id="uploadFile" type="file" accept=".epub,application/epub+zip" />
- <label for="bookTitle">عنوان (اختیاری)</label><input id="bookTitle" @bind="title" maxlength="500" />
- <label for="bookAuthor">نویسنده (اختیاری)</label><input id="bookAuthor" @bind="author" maxlength="300" />
- <label for="bookLanguage">زبان</label><select id="bookLanguage" @bind="language"><option value="fa">فارسی</option><option value="az">Azərbaycan</option><option value="az-Arab">آذربایجان تورکجه‌سی</option><option value="tr">Türkçe</option></select>
- <button class="primary" disabled="@busy" @onclick="UploadBook">افزودن به کتابخانه</button>
+ <label for="uploadFile">@L.T("file")</label>
+ <input id="uploadFile" type="file" accept=".epub,application/epub+zip" />
+ <label for="bookTitle">@L.T("titleOptional")</label>
+ <input id="bookTitle" @bind="title" maxlength="500" />
+ <label for="bookAuthor">@L.T("authorOptional")</label>
+ <input id="bookAuthor" @bind="author" maxlength="300" />
+ <label for="bookLanguage">@L.T("languageOfBook")</label>
+ <select id="bookLanguage" @bind="language">
+  <option value="fa">فارسی</option>
+  <option value="az">Azərbaycan</option>
+  <option value="az-Arab">آذربایجان تورکجه‌سی</option>
+  <option value="tr">Türkçe</option>
+ </select>
+ <button class="primary" disabled="@busy" @onclick="UploadBook">@L.T("uploadSubmit")</button>
  <p role="status">@status</p>
 </div>
 @code {
  private string title="",author="",language="fa",status="";
  private bool busy;
- private async Task UploadBook(){
-  busy=true;status="در حال بارگذاری...";
-  try {
-   var message=await Js.InvokeAsync<string>("ankaReader.upload",title,author,language);
-   if(message=="ok")Nav.NavigateTo("/");
-   else status=message;
-  }catch(JSException ex){status="بارگذاری ناموفق بود: "+ex.Message;}
+ protected override void OnInitialized()=>L.Changed+=Updated;
+ private void Updated()=>_=InvokeAsync(StateHasChanged);
+ private async Task UploadBook()
+ {
+  busy=true;status=L.T("uploading");
+  try
+  {
+   var result=await Js.InvokeAsync<string>("ankaReader.upload",title,author,language);
+   if(result=="ok")Nav.NavigateTo("/");
+   else status=result=="ابتدا یک فایل EPUB انتخاب کنید."?L.T("firstSelect"):L.T("uploadFailed")+": "+result;
+  }
+  catch(JSException ex){status=L.T("uploadFailed")+": "+ex.Message;}
   finally{busy=false;}
  }
+ public void Dispose()=>L.Changed-=Updated;
 }
