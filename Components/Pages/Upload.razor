@@ -20,12 +20,12 @@
  private string title="",author="",language="fa",status="";
  private bool busy;
  private async Task UploadBook(){
-  busy=true;status="@UI.T("uploading")";
+  busy=true;status=UI.T("uploading");
   try {
    var message=await Js.InvokeAsync<string>("ankaReader.upload",title,author,language);
    if(message=="ok")Nav.NavigateTo("/");
    else status=message;
-  }catch(JSException ex){status="@UI.T("uploadFailed")+": ""+ex.Message;}
+  }catch(JSException ex){status=UI.T("uploadFailed")+": "+ex.Message;}
   finally{busy=false;}
  }
 }
