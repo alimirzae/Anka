@@ -1,56 +1,113 @@
 @page "/read/{Id:guid}"
-@using Anka
-@inject IJSRuntime Js
+@implements IDisposable
 @implements IAsyncDisposable
-<div class="readerbar">
- <a href="/">→ بازگشت به کتابخانه</a>
- <h1 class="read-title">@(sample?.Title ?? "ANKA EPUB")</h1>
- <div class="readeractions">
-  <button @onclick="Previous" disabled="@(mode!="tr")" title="صفحه قبل">❮</button>
-  <button @onclick="Next" disabled="@(mode!="tr")" title="صفحه بعد">❯</button>
-  <button @onclick="Smaller" title="کوچک کردن قلم">A−</button>
-  <button @onclick="Larger" title="بزرگ کردن قلم">A+</button>
-  <button @onclick="ToggleFlow" title="نمایش پیوسته">☷</button>
-  <button @onclick="ToggleTheme" title="حالت شب">◐</button>
- </div>
-</div>
-@if(sample is not null)
-{
- <div class="reader-lang-bar">
-  <span>زبان مطالعه:</span>
-  <button class="@(mode=="tr"?"active":"")" @onclick='() => SelectLanguage("tr")'>Türkçe · متن کامل</button>
-  <button class="@(mode=="az"?"active":"")" @onclick='() => SelectLanguage("az")'>Azərbaycan · نمونه</button>
-  <button class="@(mode=="arab"?"active":"")" @onclick='() => SelectLanguage("arab")'>آذربایجان تورکجه‌سی · اؤرنک</button>
- </div>
-}
-<div class="reading">
- <div id="epub" style="@(mode=="tr"?"":"display:none")"></div>
- @if(sample is not null && mode!="tr")
+@inject UiText L
+@inject EpubReadingService Reader
+@inject IJSRuntime Js
+
+<div class="reader-shell">
+ <header class="readerbar">
+  <a class="reader-back" href="/">→ @L.T("back")</a>
+  <div class="reader-book-heading"><small>ANKA · @L.T("reader")</small><h1 class="read-title">@(book?.Title ?? sample?.Title ?? "EPUB")</h1><span>@book?.Author</span></div>
+  <div class="readeractions">
+   <button class="reader-tool" @onclick="FontSmaller" title="@L.T("decreaseFont")" aria-label="@L.T("decreaseFont")">A−</button>
+   <button class="reader-tool" @onclick="FontLarger" title="@L.T("increaseFont")" aria-label="@L.T("increaseFont")">A+</button>
+   <button class="reader-tool" @onclick="Theme" title="@L.T("theme")" aria-label="@L.T("theme")">◐</button>
+  </div>
+ </header>
+
+ @if(sample is not null)
  {
-  <section class="reader-sample" dir="@(mode=="arab"?"rtl":"ltr")" lang="az">
-    <span class="reading-caption">ANKA · AZƏRBAYCAN DİLİ · NÜMUNƏ</span>
-    <h2>@sample.Title</h2>
-    <p>@(mode=="az"?sample.PreviewAz:sample.PreviewArabic)</p>
-    <div class="sample-warning">این متن فقط نمونه‌ای از ترجمه آزمایشی است؛ ترجمه کامل کتاب هنوز آماده نیست.</div>
+  <div class="reader-lang-bar" role="group" aria-label="@L.T("readingLanguage")">
+   <span>@L.T("readingLanguage"):</span>
+   <button class="@(mode=="tr"?"active":"")" aria-pressed="@(mode=="tr")" @onclick='() => SelectMode("tr")'>@L.T("originalFull")</button>
+   <button class="@(mode=="az"?"active":"")" aria-pressed="@(mode=="az")" @onclick='() => SelectMode("az")'>@L.T("latinSample")</button>
+   <button class="@(mode=="arab"?"active":"")" aria-pressed="@(mode=="arab")" @onclick='() => SelectMode("arab")'>@L.T("arabicSample")</button>
+  </div>
+ }
+
+ @if(error is not null)
+ {
+  <section class="reader-message" role="alert"><span class="reader-message-icon">!</span><h2>@L.T("readerError")</h2><p>@error</p>
+   <button class="btn btn-dark" @onclick="LoadBook">@L.T("reload")</button><a class="btn btn-outline" href="/">@L.T("back")</a></section>
+ }
+ else if(book is null){<div class="reader-message" role="status">@L.T("readerLoading")</div>}
+ else if(mode=="tr")
+ {
+  <section class="reader-paper" lang="tr" dir="ltr">
+   <div class="paper-eyebrow">ANKA · EPUB READER</div><h2 class="paper-title">@book.Title</h2><div class="paper-byline">@book.Author</div>
+   <article class="paper-text" style="font-size:@(fontSize)px">
+    @foreach(var paragraph in book.Pages[pageIndex].Paragraphs){<p>@paragraph</p>}
+   </article><div class="paper-watermark">✦ ANKA</div>
   </section>
  }
-</div>
-<p class="notice">پیشرفت مطالعه EPUB در همین مرورگر ذخیره می‌شود.</p>
-@code {
- [Parameter] public Guid Id { get;set; }
- private bool mounted;
- private string mode="tr";
- private CatalogBook? sample;
- protected override void OnParametersSet(){sample=SampleCatalog.Items.FirstOrDefault(b=>CatalogImporter.BookId(b)==Id);}
- protected override async Task OnAfterRenderAsync(bool firstRender){
-  if(firstRender){await Js.InvokeVoidAsync("ankaReader.open",Id.ToString());mounted=true;}
+ else if(sample is not null)
+ {
+  <section class="reader-paper reader-preview-paper" dir="@(mode=="arab"?"rtl":"ltr")" lang="az">
+   <div class="paper-eyebrow">ANKA · AZƏRBAYCAN</div><h2 class="paper-title">@sample.Title</h2>
+   <article class="paper-text" style="font-size:@(fontSize)px"><p>@(mode=="az"?sample.PreviewAz:sample.PreviewArabic)</p></article>
+   <p class="sample-warning">@L.T("sampleWarning")</p>
+  </section>
  }
- private void SelectLanguage(string newMode){mode=newMode;}
- private Task Next()=>Js.InvokeVoidAsync("ankaReader.next").AsTask();
- private Task Previous()=>Js.InvokeVoidAsync("ankaReader.prev").AsTask();
- private Task Larger()=>Js.InvokeVoidAsync("ankaReader.font",10).AsTask();
- private Task Smaller()=>Js.InvokeVoidAsync("ankaReader.font",-10).AsTask();
- private Task ToggleFlow()=>Js.InvokeVoidAsync("ankaReader.flow").AsTask();
- private Task ToggleTheme()=>Js.InvokeVoidAsync("ankaReader.toggleTheme").AsTask();
- public async ValueTask DisposeAsync(){if(mounted)try{await Js.InvokeVoidAsync("ankaReader.close");}catch(JSDisconnectedException){}}
+ @if(book is not null)
+ {
+  <nav class="reader-pager" aria-label="@L.T("reader")">
+   <button class="page-arrow" @onclick="PreviousPage" disabled="@(!CanTurn || pageIndex==0)" aria-label="@L.T("previousPage")"><span>‹</span> @L.T("previousPage")</button>
+   <div class="page-center"><span>@L.T("page") <strong>@(pageIndex+1)</strong> @L.T("of") <strong>@book.Pages.Count</strong></span>
+    <progress max="@book.Pages.Count" value="@(pageIndex+1)"></progress><small>@L.T("readerTip")</small></div>
+   <button class="page-arrow page-arrow-next" @onclick="NextPage" disabled="@(!CanTurn || pageIndex>=book.Pages.Count-1)" aria-label="@L.T("nextPage")">@L.T("nextPage") <span>›</span></button>
+  </nav>
+  <p class="reader-footnote">@L.T("progressLocal")</p>
+ }
+</div>
+
+@code {
+ [Parameter] public Guid Id {get;set;}
+ private ReadingDocument? book;
+ private CatalogBook? sample;
+ private string? error;
+ private string mode="tr";
+ private int pageIndex;
+ private int fontSize=20;
+ private DotNetObjectReference<Read>? callback;
+ private bool restored;
+ private bool CanTurn=>mode=="tr" && book is not null;
+ protected override void OnInitialized()=>L.Changed+=RefreshUi;
+ private void RefreshUi()=>_=InvokeAsync(StateHasChanged);
+ protected override async Task OnParametersSetAsync()
+ {
+  sample=SampleCatalog.Items.FirstOrDefault(x=>CatalogImporter.BookId(x)==Id);
+  await LoadBook();
+ }
+ private async Task LoadBook()
+ {
+  error=null;
+  try{book=await Reader.OpenAsync(Id);pageIndex=0;}
+  catch(Exception ex){error=ex is FileNotFoundException?L.T("fileMissing"):ex.Message;book=null;}
+ }
+ protected override async Task OnAfterRenderAsync(bool firstRender)
+ {
+  if(!firstRender || restored)return;
+  restored=true;
+  try
+  {
+   var previous=await Js.InvokeAsync<int>("ankaSite.getPage",Id.ToString());
+   if(book is not null)pageIndex=Math.Clamp(previous,0,book.Pages.Count-1);
+   callback=DotNetObjectReference.Create(this);
+   await Js.InvokeVoidAsync("ankaSite.bindKeys",callback);
+   StateHasChanged();
+  }
+  catch(JSDisconnectedException){}
+ }
+ private void SelectMode(string value)=>mode=value;
+ private async Task NextPage(){if(!CanTurn || book is null)return;pageIndex=Math.Min(pageIndex+1,book.Pages.Count-1);await Save();}
+ private async Task PreviousPage(){if(!CanTurn)return;pageIndex=Math.Max(0,pageIndex-1);await Save();}
+ [JSInvokable] public Task TurnForward()=>InvokeAsync(NextPage);
+ [JSInvokable] public Task TurnBackward()=>InvokeAsync(PreviousPage);
+ private async Task Save(){try{await Js.InvokeVoidAsync("ankaSite.savePage",Id.ToString(),pageIndex);}catch(JSDisconnectedException){}}
+ private void FontLarger()=>fontSize=Math.Min(34,fontSize+2);
+ private void FontSmaller()=>fontSize=Math.Max(14,fontSize-2);
+ private Task Theme()=>Js.InvokeVoidAsync("ankaReader.toggleTheme").AsTask();
+ public void Dispose()=>L.Changed-=RefreshUi;
+ public async ValueTask DisposeAsync(){try{await Js.InvokeVoidAsync("ankaSite.unbindKeys");}catch(JSDisconnectedException){}callback?.Dispose();}
 }
