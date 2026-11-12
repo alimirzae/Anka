@@ -27,8 +27,8 @@ else
    <div class="book-stats"><span>◈ @L.T("originalLanguage")</span><span>◈ EPUB</span><span>◈ @L.T("noAuth")</span></div>
    <div class="preview-tabs" role="group" aria-label="@L.T("readingLanguage")">
     <button class="@(mode=="tr"?"active":"")" aria-pressed="@(mode=="tr")" @onclick='() => SetMode("tr")'>Türkçe</button>
-    <button class="@(mode=="az"?"active":"")" aria-pressed="@(mode=="az")" @onclick='() => SetMode("az")'>Azərbaycan (Latin)</button>
-    <button class="@(mode=="arab"?"active":"")" aria-pressed="@(mode=="arab")" @onclick='() => SetMode("arab")'>آذربایجان تورکجه‌سی</button>
+    <button class="@(mode=="az"?"active":"")" aria-pressed="@(mode=="az")" @onclick='() => SetMode("az")'>Az.Turkce</button>
+    <button class="@(mode=="arab"?"active":"")" aria-pressed="@(mode=="arab")" @onclick='() => SetMode("arab")'>تورکجه</button>
    </div>
    <div class="language-preview" dir="@(mode=="arab"?"rtl":"ltr")" lang="@(mode=="tr"?"tr":"az")">
     <span class="reading-caption">@L.T("languagePreview")</span>
