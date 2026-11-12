@@ -112,6 +112,18 @@ jobs:
           try {
             $health = Invoke-WebRequest -Uri 'http://localhost/api/health' -Headers @{ Host = $env:IIS_SITE } -UseBasicParsing -TimeoutSec 20
             if ($health.StatusCode -ne 200) { throw "HTTP $($health.StatusCode)" }
+            Start-Sleep -Seconds 22
+            try {
+              $catalog = Invoke-RestMethod -Uri 'http://localhost/api/catalog/status' -Headers @{ Host = $env:IIS_SITE } -TimeoutSec 15
+              Write-Host "ANKA curated books imported: $($catalog.ready) / $($catalog.total)"
+              foreach ($entry in $catalog.books) {
+                Write-Host "$($entry.title): imported=$($entry.imported)"
+              }
+              if ($catalog.ready -lt $catalog.total) { Write-Warning "Some Wikisource imports are still pending or failed. The preview cards remain available." }
+            } catch {
+              Write-Warning "Could not inspect curated catalog status: $($_.Exception.Message)"
+            }
+
           } catch {
             throw "Deployment files copied, but Anka HTTP health check failed: $($_.Exception.Message). Run the IIS permissions script and inspect ASP.NET Core Module event logs."
           }
