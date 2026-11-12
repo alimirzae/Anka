@@ -1,0 +1,53 @@
+@page "/preview/{Slug}"
+@using Anka
+@inject NavigationManager Nav
+@inject CatalogImporter Importer
+@inject IJSRuntime Js
+<div class="preview-nav"><a href="/">→ بازگشت به کتابخانه</a><span>ANKA / CLASSICS / @book?.Title</span></div>
+@if(book is null){<div class="library-empty"><h1>کتاب پیدا نشد</h1><a href="/">بازگشت</a></div>}
+else {
+<section class="detail-layout">
+ <div class="detail-book">
+  <div class="book-cover detail-cover @("cover-"+book.Slug)"><span class="cover-imprint">ANKA · CLASSICS</span><span class="cover-ornament">✦</span><strong>@book.Title</strong><small>@book.Author</small><span class="cover-foot">TÜRK EDEBİYATI</span></div>
+  <a class="source-link" href="@book.SourceUrl" target="_blank" rel="noopener noreferrer">مشاهده متن اصلی در ویکی‌نبشته ↗</a>
+ </div>
+ <div class="detail-content">
+  <span class="tag">داستان کلاسیک · مالکیت عمومی</span>
+  <h1 dir="ltr">@book.Title</h1>
+  <p class="detail-author">نوشته @book.Author</p>
+  <p>@book.Summary</p>
+  <div class="book-stats"><span>◈ زبان اصلی: ترکی استانبولی</span><span>◈ EPUB</span><span>◈ بدون ثبت‌نام</span></div>
+  <div class="preview-tabs" aria-label="انتخاب زبان مطالعه">
+   <button class="@(mode=="tr"?"active":"")" @onclick='() => SetMode("tr")'>Türkçe</button>
+   <button class="@(mode=="az"?"active":"")" @onclick='() => SetMode("az")'>Azərbaycan (Latin)</button>
+   <button class="@(mode=="arab"?"active":"")" @onclick='() => SetMode("arab")'>آذربایجان تورکجه‌سی</button>
+  </div>
+  <div class="language-preview" dir="@(mode=="arab"?"rtl":"ltr")" lang="@(mode=="tr"?"tr":"az")">
+   <span class="reading-caption">@(mode=="tr"?"TÜRKÇE · ÖN İZLEME":mode=="az"?"AZƏRBAYCAN DİLİ · NÜMUNƏ":"آذربایجان تورکجه‌سی · اؤرنک")</span>
+   <p>@(mode=="tr"?book.PreviewTr:mode=="az"?book.PreviewAz:book.PreviewArabic)</p>
+  </div>
+  <p class="preview-disclaimer">توجه: متن آذربایجانی بالا ترجمه آزمایشیِ بخش کوتاهی از داستان است، نه ترجمه کامل اثر. نسخه کامل اصیل به ترکی استانبولی ارائه می‌شود.</p>
+  <div class="detail-actions">
+   <button class="btn btn-dark" disabled="@busy" @onclick="OpenFullBook">@(busy?"در حال دریافت کتاب...":"مطالعه متن کامل ترکی ←")</button>
+   <a class="btn btn-outline" href="/upload">افزودن کتاب دیگر</a>
+  </div>
+  @if(!string.IsNullOrWhiteSpace(error)){<p class="notice" role="alert">@error</p>}
+ </div>
+</section>
+}
+@code{
+ [Parameter] public string Slug {get;set;}="";
+ private CatalogBook? book;
+ private string mode="tr";
+ private bool busy;
+ private string? error;
+ protected override void OnParametersSet(){book=SampleCatalog.Find(Slug);}
+ private void SetMode(string value){mode=value;}
+ private async Task OpenFullBook(){
+  if(book is null)return;
+  busy=true;error=null;
+  try{var id=await Importer.ImportAsync(book);Nav.NavigateTo("/read/"+id);}
+  catch(Exception){error="دریافت نسخه EPUB از ویکی‌نبشته فعلاً ممکن نشد. لینک متن اصلی در سمت راست در دسترس است.";}
+  finally{busy=false;}
+ }
+}
