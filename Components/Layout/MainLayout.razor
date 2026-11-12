@@ -1,11 +1,24 @@
 @inherits LayoutComponentBase
-<header>
- <a class="brand" href="/">✦ ANKA <small>Digital Library</small></a>
- <nav><a href="/">کتابخانه / Kitabxana</a><a href="/upload">افزودن کتاب / Kitap yükle</a></nav>
- <div class="headtools"><button @onclick="ToggleTheme">◐</button></div>
+<div class="top-strip"><span>✦ آنکا، کتابخانه‌ای برای همیشه</span><span class="top-strip-en">ANKA DIGITAL READING EXPERIENCE</span></div>
+<header class="site-header">
+ <div class="header-inner">
+  <a class="brand" href="/" aria-label="Anka home"><span class="brand-symbol">✦</span><span>ANKA<small>کتابخانه دیجیتال</small></span></a>
+  <div class="header-nav">
+   <a href="/">خانه</a><a href="/#discover">کشف کتاب‌ها</a><a href="/#discover">کتاب‌های رایگان</a><a href="/upload">کتابخانه من</a>
+  </div>
+  <div class="headtools">
+   <a class="header-search" href="/#discover" aria-label="جستجوی کتاب">⌕ <span>جستجوی کتاب...</span></a>
+   <button class="theme-switch" title="حالت شب و روز" @onclick="ToggleTheme">◐</button>
+   <a href="/upload" class="header-upload"><span>＋</span> افزودن کتاب</a>
+  </div>
+ </div>
 </header>
 <main>@Body</main>
-<footer>ANKA · Blazor Server · SQLite · EPUB</footer>
+<footer class="site-footer">
+ <div><strong class="footer-mark">✦ ANKA</strong><p>کتاب، زبان و فرهنگ در یک خانه.</p></div>
+ <div><b>کتابخانه</b><a href="/">خانه</a><a href="/#discover">منتخب آثار</a><a href="/upload">بارگذاری کتاب</a></div>
+ <div><b>درباره این نسخه</b><span>Blazor Server · SQLite · EPUB</span><span>نسخه آزمایشی — بدون حساب کاربری</span></div>
+</footer>
 @code {
  [Inject] public IJSRuntime Js { get; set; } = default!;
  private async Task ToggleTheme() => await Js.InvokeVoidAsync("ankaReader.toggleTheme");
