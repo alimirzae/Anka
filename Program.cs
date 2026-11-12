@@ -9,6 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 60L * 1024 * 1024);
 builder.Services.AddProblemDetails();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddScoped<UiText>();
+builder.Services.AddScoped<EpubReadingService>();
 builder.Services.AddHttpClient("wikisource", client => {
     client.Timeout=TimeSpan.FromSeconds(35);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("AnkaReader/1.0 (https://anka.iyashil.com/; public-domain book catalog)");
