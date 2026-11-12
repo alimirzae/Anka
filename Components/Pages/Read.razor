@@ -151,7 +151,12 @@
   catch(Exception ex){error=ex is FileNotFoundException?L.T("fileMissing"):ex.Message;book=null;}
  }
  protected override async Task OnAfterRenderAsync(bool firstRender){
-  if(restored || book is null)return;
+  if(restored && book is not null){
+   try { await Js.InvokeVoidAsync("ankaReading.restoreHighlights","ankaReaderText",Id.ToString(),pageIndex); }
+   catch(JSDisconnectedException){}
+   return;
+  }
+  if(book is null)return;
   restored=true;
   try {
    var previous=await Js.InvokeAsync<int>("ankaSite.getPage",Id.ToString());
