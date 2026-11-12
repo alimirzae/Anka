@@ -30,7 +30,7 @@ else {
   </div>
   <p class="preview-disclaimer">@UI.T("previewNote")</p>
   <div class="detail-actions">
-   <button class="btn btn-dark" disabled="@busy" @onclick="OpenFullBook">@(busy?"@UI.T("preparing")":"@UI.T("readFull") ←")</button>
+   <button class="btn btn-dark" disabled="@busy" @onclick="OpenFullBook">@(busy?UI.T("preparing"):UI.T("readFull")+" ←")</button>
    <a class="btn btn-outline" href="/upload">@UI.T("addBook")</a>
   </div>
   @if(!string.IsNullOrWhiteSpace(error)){<p class="notice" role="alert">@error</p>}
