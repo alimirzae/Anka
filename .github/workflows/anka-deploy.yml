@@ -39,7 +39,10 @@ jobs:
         id: discover
         run: |
           $ErrorActionPreference = 'Stop'
-          if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { throw 'Install the .NET SDK on the runner.' }
+          $dotnetDir = 'C:\Program Files\dotnet'
+          if (-not (Test-Path (Join-Path $dotnetDir 'dotnet.exe'))) { throw 'Install the .NET SDK on the runner.' }
+          $env:PATH = "$dotnetDir;$env:PATH"
+          $dotnetDir >> $env:GITHUB_PATH
           Import-Module WebAdministration -ErrorAction Stop
           $site = Get-Website -Name $env:IIS_SITE -ErrorAction Stop
           $expected = [IO.Path]::GetFullPath($env:IIS_PATH).TrimEnd('\')
@@ -75,6 +78,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
           if (-not (Test-Path (Join-Path $staging 'web.config'))) {
             throw 'No web.config in publish output; verify that this is an ASP.NET Core IIS project.'
+          }
+
+      - name: Require explicit MySQL and hosting readiness
+        run: |
+          if (-not (Test-Path 'C:\ProgramData\Anka\deploy.ready')) {
+            throw 'Deployment blocked: configure MySQL, protect public upload access, then create C:\ProgramData\Anka\deploy.ready.'
+          }
+          if (-not (Test-Path (Join-Path $env:IIS_PATH 'appsettings.Production.json'))) {
+            throw 'Deployment blocked: create an IIS-local appsettings.Production.json with ConnectionStrings:Anka.'
           }
 
       - name: Deploy to isolated IIS directory
