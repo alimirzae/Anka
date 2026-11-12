@@ -1,5 +1,5 @@
 (() => {
- const allowed = new Set(["fa","tr","az-Latn","az-Arab"]);
+ const allowed = new Set(["fa","tr","az-Latn","az-Arab","en"]);
  const safe = lang => allowed.has(lang) ? lang : "fa";
  let keyHandler=null;
  window.ankaSite = {
