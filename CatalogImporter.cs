@@ -106,19 +106,10 @@ public sealed class CatalogImporter(
         Add("mimetype","application/epub+zip",CompressionLevel.NoCompression);
         Add("META-INF/container.xml","""<?xml version="1.0" encoding="utf-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="EPUB/package.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""");
         var body=string.Join("\n",paragraphs.Select(p=>"<p>"+Escape(p)+"</p>"));
-        Add("EPUB/chapter.xhtml",$"""<?xml version="1.0" encoding="utf-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="tr"><head><title>{Escape(item.Title)}</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body>
-<h1>{Escape(item.Title)}</h1><p class="byline">{Escape(item.Author)}</p>{body}
-<p class="source">Kaynak: {Escape(item.SourceUrl)} · Vikikaynak · Kamu malı eser</p>
-</body></html>""");
+        Add("EPUB/chapter.xhtml",$"""<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="tr"><head><title>{Escape(item.Title)}</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body><h1>{Escape(item.Title)}</h1><p class="byline">{Escape(item.Author)}</p>{body}<p class="source">Kaynak: {Escape(item.SourceUrl)} · Vikikaynak · Kamu malı eser</p></body></html>""");
         Add("EPUB/style.css","body{font-family:serif;line-height:1.85;padding:1em}h1{text-align:center}.byline,.source{text-align:center;color:#777}p{text-align:justify;margin-bottom:1.1em}");
-        Add("EPUB/nav.xhtml",$"""<?xml version="1.0" encoding="utf-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>İçindekiler</title></head><body><nav epub:type="toc" id="toc"><h1>İçindekiler</h1><ol><li><a href="chapter.xhtml">{Escape(item.Title)}</a></li></ol></nav></body></html>""");
-        Add("EPUB/package.opf",$"""<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id" xml:lang="tr">
-<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="pub-id">urn:uuid:{BookId(item)}</dc:identifier><dc:title>{Escape(item.Title)}</dc:title><dc:creator>{Escape(item.Author)}</dc:creator><dc:language>tr</dc:language></metadata>
-<manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="style" href="style.css" media-type="text/css"/></manifest>
-<spine><itemref idref="chapter"/></spine></package>""");
+        Add("EPUB/nav.xhtml",$"""<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>İçindekiler</title></head><body><nav epub:type="toc" id="toc"><h1>İçindekiler</h1><ol><li><a href="chapter.xhtml">{Escape(item.Title)}</a></li></ol></nav></body></html>""");
+        Add("EPUB/package.opf",$"""<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id" xml:lang="tr"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="pub-id">urn:uuid:{BookId(item)}</dc:identifier><dc:title>{Escape(item.Title)}</dc:title><dc:creator>{Escape(item.Author)}</dc:creator><dc:language>tr</dc:language></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="style" href="style.css" media-type="text/css"/></manifest><spine><itemref idref="chapter"/></spine></package>""");
     }
 }
 
