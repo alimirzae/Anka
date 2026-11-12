@@ -1,24 +1,27 @@
-# ANKA — EPUB library (Phase 1)
+# Anka — Blazor Server + SQLite (Phase 1)
 
-ASP.NET Core 10 **Blazor Server (Interactive Server rendering)**, MySQL, EPUB.js. Anonymous local/community prototype: public upload is intentionally **not authenticated** and must be protected at the reverse proxy before Internet exposure. Use a private or IP-allowlisted staging environment.
+.NET 10 ASP.NET Core Blazor Server with interactive server rendering, SQLite, and EPUB.js.
+No authentication in the prototype. The upload endpoint is public unless access is restricted at IIS/reverse proxy.
 
-## Features
-- MySQL-backed EPUB collection and validated EPUB uploads (50 MB max)
-- Persian, Azerbaijani Latin, Azerbaijani Arabic-script and Turkish interface
-- Browser EPUB reader (pagination/scrolling, dark mode, font size, table of contents, progress, selection, copying, highlights)
-- Responsive desktop/mobile interface
-- No authentication, payments, or online dictionary API
+## Storage
+- Database: `C:\inetpub\anka.iyashil.com\App_Data\anka.db`
+- Uploaded EPUB: `C:\inetpub\anka.iyashil.com\App_Data\epubs`
+- Both folders are created on startup and retained across deployments.
+- **No MySQL and no production connection string required.** SQLite works automatically.
+- `App_Data` is outside the web-exposed `wwwroot`.
 
-## Setup
-1. Install .NET 10 SDK, ASP.NET Core Hosting Bundle, and MySQL 8+; create a database with `utf8mb4` and a limited DB account allowed to create tables initially.
-2. Set Windows machine/service environment variable `ANKA_MYSQL_CONNECTION`, e.g. `Server=127.0.0.1;Port=3306;Database=anka;User ID=anka_app;Password=REPLACE_ME;SslMode=Preferred;`. **Never commit credentials**.
-3. `dotnet restore Anka.csproj && dotnet build Anka.csproj -c Release && dotnet publish Anka.csproj -c Release -o publish`.
-4. IIS: dedicated app pool "No Managed Code" and matching ASP.NET Core Hosting Bundle. Site physical path `C:\inetpub\anka.iyashil.com`; allow the runner service write access only to this folder and private EPUB storage.
-5. Use `/api/health` to test health. On first startup the app creates its `books` table.
-6. CDN scripts must load (JSZip and epub.js); for full offline operation vendor them locally and update the CSP.
+## Server (one-time)
+1. Install the .NET 10 ASP.NET Core Hosting Bundle and restart IIS once after installation if necessary.
+2. Run elevated PowerShell:
+   `& "C:\Program Files\dotnet\dotnet.exe" --list-runtimes`
+3. To configure the site and set folder ACLs, run `scripts/configure-anka-iis-sqlite.ps1` from an administrator PowerShell.
+   The script checks the Anka IIS binding and grants Full Control to its **IIS application pool identity** for only the Anka directory, and Modify to **NETWORK SERVICE** for publishing.
+4. GitHub workflow `anka-deploy.yml` builds, stages, and deploys; it preserves `App_Data` and never requires a MySQL readiness marker.
+5. Confirm `https://anka.iyashil.com/api/health` returns JSON.
 
-## Legal and safety
-Free-to-read is not the same as free-to-redistribute. Only upload books with verified distribution rights. For a public site, add authentication or a trusted network restriction and abuse prevention before allowing uploads. EPUB markup is untrusted; scripted content is disabled. Validate and scan uploaded files on the production server. LocalStorage highlights/progress are per-browser. No automated text transliteration is claimed: a book in Azerbaijani Latin script remains Latin until a properly converted Arabic-script edition is supplied.
-
-## Pipeline
-`.github/workflows/anka-deploy.yml` requires a self-hosted Windows runner labeled `anka`. If another `.csproj` is added to the root tree, adjust discovery to select the web app. Configure DB credentials as **service machine environment variable** for the app process, not GitHub source control.
+## Important
+- **Public upload without login is unsafe on the public internet.** Before exposing the app, restrict POST `/api/books` to trusted IPs at the reverse proxy, IIS URL authorization, or another upload gateway. Do not assume `DisableAntiforgery()` provides upload protection.
+- Back up `App_Data` including the SQLite database and EPUB files.
+- Only distribute ebooks with verified redistribution rights; free downloads are not automatically public domain.
+- Latin Azerbaijani and Arabic-script Azerbaijani are separately supported interface languages; automatic book-script conversion is not yet completed.
+- EPUB.js and JSZip currently load from CDN and need internet connectivity.
