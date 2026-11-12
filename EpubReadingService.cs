@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 namespace Anka;
 
 public sealed record ReadingPage(int Number, IReadOnlyList<string> Paragraphs);
-public sealed record ReadingDocument(string Title, string Author, IReadOnlyList<ReadingPage> Pages);
+public sealed record ReadingDocument(string Title, string Author, string Language, IReadOnlyList<ReadingPage> Pages);
 
 /// <summary>
 /// Server-side EPUB text reader: no external JavaScript CDN and no HTML from the EPUB
@@ -21,18 +21,19 @@ public sealed class EpubReadingService(IWebHostEnvironment environment, ILogger<
             DataSource = Path.Combine(environment.ContentRootPath, "App_Data", "anka.db"),
             Mode = SqliteOpenMode.ReadWrite
         }.ToString();
-        string filename, title, author;
+        string filename, title, author, language;
         await using (var db = new SqliteConnection(cs))
         {
             await db.OpenAsync(ct);
             await using var cmd = db.CreateCommand();
-            cmd.CommandText = "SELECT filename,title,author FROM books WHERE id=@id";
+            cmd.CommandText = "SELECT filename,title,author,language FROM books WHERE id=@id";
             cmd.Parameters.AddWithValue("@id", id.ToString());
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             if (!await reader.ReadAsync(ct)) throw new FileNotFoundException("Book is not in the library.");
             filename=reader.GetString(0);
             title=reader.GetString(1);
             author=reader.GetString(2);
+            language=reader.GetString(3);
         }
 
         // Never trust a path from the database to escape the dedicated EPUB directory.
@@ -111,7 +112,7 @@ public sealed class EpubReadingService(IWebHostEnvironment environment, ILogger<
         }
         Flush();
         if(pages.Count==0)throw new InvalidDataException("EPUB contains no readable text chapters.");
-        return new ReadingDocument(title,author,pages);
+        return new ReadingDocument(title,author,language,pages);
     }
 
     private static XDocument LoadXml(ZipArchiveEntry entry)
