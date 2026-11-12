@@ -2,48 +2,55 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
 using Anka.Components;
-using MySqlConnector;
+using Microsoft.Data.Sqlite;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 60L * 1024 * 1024);
 builder.Services.AddProblemDetails();
-builder.Services.AddHttpClient("local", client => client.BaseAddress = new Uri(builder.Configuration["InternalBaseUrl"] ?? "http://127.0.0.1:5000/"));
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
-var connectionString = builder.Configuration.GetConnectionString("Anka")
-    ?? Environment.GetEnvironmentVariable("ANKA_MYSQL_CONNECTION");
-if (string.IsNullOrWhiteSpace(connectionString))
-    throw new InvalidOperationException("Configure ConnectionStrings:Anka or ANKA_MYSQL_CONNECTION.");
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStaticFiles();
 app.UseAntiforgery();
-var storage = Path.GetFullPath(builder.Configuration["StoragePath"] ?? Path.Combine(app.Environment.ContentRootPath, "App_Data", "epubs"));
+
+// SQLite and uploaded EPUB files live outside wwwroot and survive IIS redeployments.
+var dataDirectory = Path.Combine(app.Environment.ContentRootPath, "App_Data");
+var storage = Path.Combine(dataDirectory, "epubs");
 Directory.CreateDirectory(storage);
-await using (var db = new MySqlConnection(connectionString))
+var databaseFile = Path.Combine(dataDirectory, "anka.db");
+var connectionString = new SqliteConnectionStringBuilder
+{
+    DataSource = databaseFile,
+    Mode = SqliteOpenMode.ReadWriteCreate,
+    Pooling = true,
+    DefaultTimeout = 30
+}.ToString();
+await using (var db = new SqliteConnection(connectionString))
 {
     await db.OpenAsync();
-    await using var cmd = new MySqlCommand("""
-    CREATE TABLE IF NOT EXISTS books (
-        id CHAR(36) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL PRIMARY KEY,
-        title VARCHAR(500) NOT NULL,
-        author VARCHAR(300) NOT NULL,
-        language VARCHAR(32) NOT NULL,
-        original_script VARCHAR(24) NOT NULL,
-        filename VARCHAR(255) NOT NULL,
-        bytes BIGINT NOT NULL,
-        created_utc DATETIME(6) NOT NULL,
-        INDEX ix_books_title (title(160))
-    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    """, db);
+    await using var cmd = db.CreateCommand();
+    cmd.CommandText = """
+        CREATE TABLE IF NOT EXISTS books (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            author TEXT NOT NULL,
+            language TEXT NOT NULL,
+            original_script TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            bytes INTEGER NOT NULL,
+            created_utc TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS ix_books_title ON books(title);
+        """;
     await cmd.ExecuteNonQueryAsync();
 }
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", app = "Anka", framework = "Blazor Server" }));
 app.MapGet("/api/books", async () =>
 {
     var books = new List<BookListItem>();
-    await using var db = new MySqlConnection(connectionString);
+    await using var db = new SqliteConnection(connectionString);
     await db.OpenAsync();
-    await using var cmd = new MySqlCommand("SELECT id,title,author,language,original_script,bytes FROM books ORDER BY created_utc DESC", db);
+    await using var cmd = new SqliteCommand("SELECT id,title,author,language,original_script,bytes FROM books ORDER BY created_utc DESC", db);
     await using var r = await cmd.ExecuteReaderAsync();
     while (await r.ReadAsync())
         books.Add(new BookListItem(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5)));
@@ -51,9 +58,9 @@ app.MapGet("/api/books", async () =>
 });
 app.MapGet("/api/books/{id:guid}/file", async (Guid id) =>
 {
-    await using var db = new MySqlConnection(connectionString);
+    await using var db = new SqliteConnection(connectionString);
     await db.OpenAsync();
-    await using var cmd = new MySqlCommand("SELECT filename FROM books WHERE id=@id", db);
+    await using var cmd = new SqliteCommand("SELECT filename FROM books WHERE id=@id", db);
     cmd.Parameters.AddWithValue("@id", id.ToString());
     var name = await cmd.ExecuteScalarAsync() as string;
     if (name is null) return Results.NotFound();
@@ -98,11 +105,11 @@ app.MapPost("/api/books", async (HttpRequest request) =>
         if (string.IsNullOrWhiteSpace(title)) title = Path.GetFileNameWithoutExtension(file.FileName);
         if (title.Length > 500 || author.Length > 300 || language.Length > 32)
             throw new InvalidDataException("Metadata too long.");
-        await using var db = new MySqlConnection(connectionString);
+        await using var db = new SqliteConnection(connectionString);
         await db.OpenAsync();
-        await using var cmd = new MySqlCommand("""
+        await using var cmd = new SqliteCommand("""
           INSERT INTO books (id,title,author,language,original_script,filename,bytes,created_utc)
-          VALUES (@id,@title,@author,@language,'auto',@file,@bytes,UTC_TIMESTAMP(6))
+          VALUES (@id,@title,@author,@language,'auto',@file,@bytes,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
         """, db);
         cmd.Parameters.AddWithValue("@id", id.ToString());
         cmd.Parameters.AddWithValue("@title", title);
