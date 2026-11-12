@@ -11,7 +11,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddHttpClient("wikisource", client => {
     client.Timeout=TimeSpan.FromSeconds(35);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("AnkaReader/1.0 (public domain book collection)");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("AnkaReader/1.0 (https://anka.iyashil.com/; public-domain book catalog)");
 });
 builder.Services.AddSingleton<CatalogImporter>();
 builder.Services.AddHostedService<CatalogSeedWorker>();
@@ -52,6 +52,23 @@ await using (var db = new SqliteConnection(connectionString))
     await cmd.ExecuteNonQueryAsync();
 }
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", app = "Anka", framework = "Blazor Server" }));
+app.MapGet("/api/catalog/status", async () =>
+{
+    var imported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    await using var db = new SqliteConnection(connectionString);
+    await db.OpenAsync();
+    await using var command = db.CreateCommand();
+    command.CommandText = "SELECT id FROM books";
+    await using var r = await command.ExecuteReaderAsync();
+    while (await r.ReadAsync()) imported.Add(r.GetString(0));
+    var items = SampleCatalog.Items.Select(x => new {
+        x.Slug, x.Title,
+        imported = imported.Contains(CatalogImporter.BookId(x).ToString()) &&
+                   File.Exists(Path.Combine(storage, CatalogImporter.BookId(x).ToString("N")+".epub")),
+        source = x.SourceUrl
+    }).ToList();
+    return Results.Ok(new { total=items.Count, ready=items.Count(x=>x.imported), books=items });
+});
 app.MapGet("/api/books", async () =>
 {
     var books = new List<BookListItem>();
