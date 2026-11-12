@@ -11,8 +11,7 @@ namespace Anka;
 
 public sealed class CatalogImporter(
     IWebHostEnvironment env,
-    IHttpClientFactory httpFactory,
-    ILogger<CatalogImporter> logger)
+    IHttpClientFactory httpFactory)
 {
     private readonly SemaphoreSlim gate = new(1,1);
     private string DatabasePath => Path.Combine(env.ContentRootPath, "App_Data", "anka.db");
@@ -47,7 +46,7 @@ public sealed class CatalogImporter(
                 .Select(x => x.Groups[1].Value)
                 .Select(x => Regex.Replace(x, @"<sup\b[^>]*>.*?</sup>", "", RegexOptions.IgnoreCase|RegexOptions.Singleline))
                 .Select(x => Regex.Replace(x, @"<[^>]+>", " "))
-                .Select(WebUtility.HtmlDecode)
+                .Select(x => WebUtility.HtmlDecode(x) ?? string.Empty)
                 .Select(x => Regex.Replace(x, @"\s+", " ").Trim())
                 .Where(x => x.Length >= 15 && !x.Contains("Vikikaynak", StringComparison.OrdinalIgnoreCase))
                 .ToList();
