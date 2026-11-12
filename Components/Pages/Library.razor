@@ -1,84 +1,116 @@
 @page "/"
-@using Microsoft.Data.Sqlite
-@using Anka
+@implements IDisposable
+@inject UiText L
 @inject NavigationManager Nav
 @inject IWebHostEnvironment HostEnvironment
-@inject CatalogImporter Importer
 
 <section class="showcase">
  <div class="showcase-copy">
-  <span class="pill">کتابخانه دیجیتال آنکا <span class="pill-dot"></span> ANKA READER</span>
-  <h1>دنیای کتاب،<br /><em>همیشه همراه شما.</em></h1>
-  <p>کلاسیک‌های ادبیات ترکی را کشف کنید؛ مطالعه راحت در موبایل و دسکتاپ، همراه با نمونه‌های خواندنی به ترکی آذربایجانی در دو خط.</p>
+  <span class="pill">@L.T("brandSub") <span class="pill-dot"></span> ANKA READER</span>
+  <h1>@L.T("heroHeading")</h1>
+  <p>@L.T("heroDescription")</p>
   <div class="hero-buttons">
-   <a class="btn btn-light" href="#discover">کاوش کتاب‌ها <span aria-hidden="true">←</span></a>
-   <a class="btn btn-ghost" href="/upload">+ افزودن کتاب EPUB</a>
+   <a class="btn btn-light" href="#discover">@L.T("explore") <span aria-hidden="true">←</span></a>
+   <a class="btn btn-ghost" href="/upload">＋ @L.T("addBook")</a>
   </div>
-  <div class="hero-facts"><span>◉ بدون نیاز به ثبت‌نام</span><span>◉ EPUB و مطالعه آنلاین</span></div>
+  <div class="hero-facts"><span>◉ @L.T("noLogin")</span><span>◉ @L.T("onlineRead")</span></div>
  </div>
  <div class="hero-art" aria-hidden="true">
-  <div class="art-glow"></div><div class="floating-book art-book-one"><span>ANKA CLASSICS</span><b>KAŞAĞI</b><small>ÖMER SEYFETTİN</small><i>✦</i></div>
-  <div class="floating-book art-book-two"><span>ANKA COLLECTION</span><b>YALNIZ<br/>EFE</b><small>TÜRK EDEBİYATI</small><i>✺</i></div>
-  <div class="art-medallion">۵ <small>اثر برگزیده</small></div>
+  <div class="art-glow"></div>
+  <div class="floating-book art-book-one"><span>ANKA CLASSICS</span><b>KAŞAĞI</b><small>ÖMER SEYFETTİN</small><i>✦</i></div>
+  <div class="floating-book art-book-two"><span>ANKA COLLECTION</span><b>YALNIZ EFE</b><small>TÜRK EDEBİYATI</small><i>✺</i></div>
+  <div class="art-medallion">5 <small>ANKA</small></div>
  </div>
 </section>
 
-<section class="benefit-strip" aria-label="امکانات آنکا">
- <div><span class="feature-symbol">▣</span><span><strong>کتابخانه شخصی</strong><small>کتاب‌های EPUB شما</small></span></div>
- <div><span class="feature-symbol">☼</span><span><strong>مطالعه روز و شب</strong><small>تنظیم قلم و ظاهر</small></span></div>
- <div><span class="feature-symbol">文</span><span><strong>سه حالت مطالعه</strong><small>ترکی، آذربایجانی لاتین و عربی</small></span></div>
- <div><span class="feature-symbol">☷</span><span><strong>همراه در همه دستگاه‌ها</strong><small>موبایل و دسکتاپ</small></span></div>
+<section class="benefit-strip">
+ <div><span class="feature-symbol">▣</span><span><strong>@L.T("personalShelf")</strong><small>@L.T("personalShelfDetail")</small></span></div>
+ <div><span class="feature-symbol">☼</span><span><strong>@L.T("dayNight")</strong><small>@L.T("dayNightDetail")</small></span></div>
+ <div><span class="feature-symbol">文</span><span><strong>@L.T("threeScripts")</strong><small>@L.T("threeScriptsDetail")</small></span></div>
+ <div><span class="feature-symbol">☷</span><span><strong>@L.T("responsive")</strong><small>@L.T("responsiveDetail")</small></span></div>
 </section>
 
 <section class="catalog-section" id="discover">
- <div class="section-heading"><div><span class="eyebrow">EDITOR'S CHOICE</span><h2>از ادبیات کلاسیک ترکیه</h2><p>پنج داستان از عمر سیف‌الدین، همراه با جلدهای اختصاصی آنکا</p></div><span class="tag">منتخب • دسترسی آزاد</span></div>
- <div class="catalog-tabs"><button class="selected">همه کتاب‌ها</button><button @onclick='() => filter="داستان کوتاه"'>داستان کوتاه</button><button @onclick='() => filter="تاریخی"'>تاریخی</button><button @onclick='() => filter="ماجراجویی"'>ماجراجویی</button><button @onclick='() => filter=""'>نمایش همه</button></div>
+ <div class="section-heading">
+  <div><span class="eyebrow">EDITOR'S CHOICE</span><h2>@L.T("turkishClassics")</h2><p>@L.T("fiveStories")</p></div>
+  <span class="tag">@L.T("featured")</span>
+ </div>
+ <div class="catalog-tabs">
+  <button class="@(filter==""?"selected":"")" @onclick='() => SetFilter("")'>@L.T("all")</button>
+  <button class="@(filter=="داستان کوتاه"?"selected":"")" @onclick='() => SetFilter("داستان کوتاه")'>@L.T("shortStory")</button>
+  <button class="@(filter=="تاریخی"?"selected":"")" @onclick='() => SetFilter("تاریخی")'>@L.T("historical")</button>
+  <button class="@(filter=="ماجراجویی"?"selected":"")" @onclick='() => SetFilter("ماجراجویی")'>@L.T("adventure")</button>
+ </div>
  <div class="featured-books">
  @foreach(var book in SampleCatalog.Items.Where(b=>string.IsNullOrEmpty(filter)||b.Category==filter))
  {
   <article class="feature-card" @key="book.Slug">
-   <a href="@("/preview/"+book.Slug)" class="book-cover @("cover-"+book.Slug)" aria-label="@book.Title">
-    <span class="cover-imprint">ANKA · CLASSICS</span><span class="cover-ornament">✦</span>
+   <a class="book-cover @("cover-"+book.Slug)" href="@("/preview/"+book.Slug)" aria-label="@book.Title">
+    <span class="cover-imprint">ANKA · CLASSICS</span><span class="cover-ornament">❧</span>
     <strong>@book.Title</strong><small>@book.Author</small><span class="cover-foot">TÜRK EDEBİYATI</span>
    </a>
-   <div class="feature-details"><div class="book-type">داستان کوتاه · ترکی استانبولی</div><a class="feature-name" href="@("/preview/"+book.Slug)">@book.Title</a><p>@book.Summary</p>
-   <div class="book-options"><span>TR</span><span>AZ</span><span>آذ</span></div>
-   <a class="view-book" href="@("/preview/"+book.Slug)">پیش‌نمایش سه‌زبانه <span>←</span></a></div>
+   <div class="feature-details">
+    <div class="book-type">@L.T("booksCategory")</div>
+    <a class="feature-name" href="@("/preview/"+book.Slug)">@book.Title</a>
+    <p>@L.T("summary_"+book.Slug)</p>
+    <div class="book-options"><span>TR</span><span>AZ</span><span>آذ</span></div>
+    <a class="view-book" href="@("/preview/"+book.Slug)">@L.T("previewThree") <span aria-hidden="true">←</span></a>
+   </div>
   </article>
  }
  </div>
- <p class="source-note">متن کامل ترکی از ویکی‌نبشته دریافت می‌شود. نسخه‌های آذربایجانی فعلاً پیش‌نمایش ترجمه‌اند، نه ترجمه کامل کتاب. <a href="https://tr.wikisource.org/wiki/Ki%C5%9Fi:%C3%96mer_Seyfettin" target="_blank" rel="noopener noreferrer">منبع آثار</a></p>
+ <p class="source-note">@L.T("sourceNote") <a href="https://tr.wikisource.org/wiki/Ki%C5%9Fi:%C3%96mer_Seyfettin" target="_blank" rel="noopener noreferrer">@L.T("source")</a></p>
 </section>
 
-<section class="personal-section">
- <div class="section-heading"><div><span class="eyebrow">YOUR SHELF</span><h2>کتابخانه من</h2><p>کتاب‌های شخصی و نسخه‌های واردشده از ویکی‌نبشته</p></div><a class="btn btn-dark" href="/upload">+ بارگذاری EPUB</a></div>
- <div class="library-filter"><label for="librarySearch">⌕</label><input id="librarySearch" @bind="search" @bind:event="oninput" placeholder="جست‌وجو در کتابخانه..." /><span>@VisibleBooks.Count کتاب</span></div>
- @if(error is not null){<p class="notice">@error</p>}
+<section class="personal-section" id="library">
+ <div class="section-heading">
+  <div><span class="eyebrow">YOUR SHELF</span><h2>@L.T("yourShelf")</h2><p>@L.T("shelfDescription")</p></div>
+  <a class="btn btn-dark" href="/upload">＋ @L.T("addBook")</a>
+ </div>
+ <div class="library-filter">
+  <span aria-hidden="true">⌕</span>
+  <input aria-label="@L.T("search")" @bind="search" @bind:event="oninput" placeholder="@L.T("searchShelf")" />
+  <span>@VisibleBooks.Count @L.T("booksUnit")</span>
+ </div>
+ @if(error is not null){<p class="notice" role="alert">@error</p>}
  <div class="my-library-grid">
- @if(VisibleBooks.Count == 0){<div class="library-empty"><div>▤</div><strong>کتابخانه شما منتظر کتاب‌های تازه است</strong><p>از آثار منتخب بالا شروع کنید یا فایل EPUB خودتان را اضافه کنید.</p></div>}
- @foreach(var b in VisibleBooks)
+ @if(VisibleBooks.Count == 0)
  {
-  <button class="library-book" @key="b.Id" @onclick="() => OpenBook(b.Id)">
-    <div class="small-cover"><span>ANKA</span><strong>@b.Title</strong><small>@b.Author</small></div>
-    <strong>@b.Title</strong><small>@b.Author · @b.Language</small><span class="library-open">ادامه مطالعه ←</span>
+  <div class="library-empty"><div>▤</div><strong>@L.T("shelfEmpty")</strong><p>@L.T("shelfEmptySub")</p></div>
+ }
+ @foreach(var book in VisibleBooks)
+ {
+  <button class="library-book" @key="book.Id" @onclick="() => OpenBook(book.Id)">
+   <div class="small-cover"><span>ANKA</span><strong>@book.Title</strong><small>@book.Author</small></div>
+   <strong>@book.Title</strong><small>@book.Author · @book.Language</small>
+   <span class="library-open">@L.T("continue") ←</span>
   </button>
  }
  </div>
 </section>
 @code {
- private void OpenBook(string id) => Nav.NavigateTo("/read/" + id);
  private List<BookListItem> books = new();
- private string search="", filter="";
+ private string search="",filter="";
  private string? error;
- private List<BookListItem> VisibleBooks => books.Where(b => (b.Title+" "+b.Author).Contains(search,StringComparison.OrdinalIgnoreCase)).ToList();
- protected override async Task OnInitializedAsync(){
-  try{
-    var path=Path.Combine(HostEnvironment.ContentRootPath,"App_Data","anka.db");
-    await using var db=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=path,Mode=SqliteOpenMode.ReadWrite}.ToString());
-    await db.OpenAsync();
-    await using var cmd=new SqliteCommand("SELECT id,title,author,language,original_script,bytes FROM books ORDER BY created_utc DESC",db);
-    await using var reader=await cmd.ExecuteReaderAsync();
-    while(await reader.ReadAsync())books.Add(new BookListItem(reader.GetString(0),reader.GetString(1),reader.GetString(2),reader.GetString(3),reader.GetString(4),reader.GetInt64(5)));
-  }catch(Exception){error="کتابخانه بارگذاری نشد. مجوزهای App_Data را بررسی کنید.";}
+ private List<BookListItem> VisibleBooks => books.Where(b=>(b.Title+" "+b.Author).Contains(search,StringComparison.OrdinalIgnoreCase)).ToList();
+ protected override void OnInitialized() => L.Changed += Updated;
+ private void Updated() => _ = InvokeAsync(StateHasChanged);
+ private void SetFilter(string key) => filter=key;
+ private void OpenBook(string id) => Nav.NavigateTo("/read/"+id);
+ protected override async Task OnInitializedAsync()
+ {
+  try
+  {
+   var path=Path.Combine(HostEnvironment.ContentRootPath,"App_Data","anka.db");
+   await using var db=new Microsoft.Data.Sqlite.SqliteConnection(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{
+    DataSource=path,Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite}.ToString());
+   await db.OpenAsync();
+   await using var cmd=db.CreateCommand();
+   cmd.CommandText="SELECT id,title,author,language,original_script,bytes FROM books ORDER BY created_utc DESC";
+   await using var reader=await cmd.ExecuteReaderAsync();
+   while(await reader.ReadAsync())books.Add(new BookListItem(reader.GetString(0),reader.GetString(1),reader.GetString(2),reader.GetString(3),reader.GetString(4),reader.GetInt64(5)));
+  }
+  catch(Exception) { error=L.T("readerError"); }
  }
+ public void Dispose()=>L.Changed -= Updated;
 }
