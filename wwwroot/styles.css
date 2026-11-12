@@ -69,3 +69,18 @@ body.dark .reader-paper .paper-eyebrow{color:#bd9fa9}
  .reader-paper{margin:9px 0 13px;padding:29px 22px 45px;min-height:350px}.reader-paper .paper-title{font-size:21px}.reader-paper .paper-byline{margin-bottom:26px}
  .reader-pager{grid-template-columns:1fr 1fr;gap:9px}.reader-pager .page-arrow{padding:10px 7px;min-height:44px}.reader-pager .page-center{grid-column:1/-1;grid-row:1}.page-center small{display:none}
 }
+
+/* Page turns are mounted on the book itself, always visible without reaching the footer. */
+.reader-paper-with-arrows{position:relative;isolation:isolate}
+.reader-side-turn{position:absolute;top:50%;transform:translateY(-50%);z-index:2;display:grid;place-items:center;width:52px;height:64px;border:1px solid var(--line);border-radius:16px;background:var(--paper);color:var(--accent);box-shadow:0 6px 20px #2312211c;font-size:38px;line-height:1;opacity:.92}
+.reader-side-turn:hover:not(:disabled){background:var(--accent);color:white;opacity:1}
+.reader-side-turn:focus-visible{outline:3px solid var(--accent2);outline-offset:3px}
+.reader-side-turn:disabled{opacity:.24;cursor:default}
+.reader-side-prev{left:-25px}.reader-side-next{right:-25px}
+.reader-paper[dir="rtl"] .paper-text{text-align:right;direction:rtl;font-family:Vazirmatn,Tahoma,sans-serif}
+.reader-paper[dir="ltr"] .paper-text{direction:ltr}
+@media(max-width:700px){
+ .reader-side-turn{position:fixed;top:auto;bottom:calc(14px + env(safe-area-inset-bottom));transform:none;width:53px;height:53px;border-radius:50%;box-shadow:0 4px 20px #0003}
+ .reader-side-prev{left:14px}.reader-side-next{right:14px}
+ .reader-pager{padding-bottom:68px}
+}

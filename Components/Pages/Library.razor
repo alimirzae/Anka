@@ -53,7 +53,7 @@
     <div class="book-type">@L.T("booksCategory")</div>
     <a class="feature-name" href="@("/preview/"+book.Slug)">@book.Title</a>
     <p>@L.T("summary_"+book.Slug)</p>
-    <div class="book-options"><span>TR</span><span>AZ</span><span>آذ</span></div>
+    <div class="book-options"><span>Türkçe</span><span>Az.Turkce</span><span>تورکجه</span></div>
     <a class="view-book" href="@("/preview/"+book.Slug)">@L.T("previewThree") <span aria-hidden="true">←</span></a>
    </div>
   </article>
@@ -82,7 +82,7 @@
  {
   <button class="library-book" @key="book.Id" @onclick="() => OpenBook(book.Id)">
    <div class="small-cover"><span>ANKA</span><strong>@book.Title</strong><small>@book.Author</small></div>
-   <strong>@book.Title</strong><small>@book.Author · @book.Language</small>
+   <strong>@book.Title</strong><small>@book.Author · @LanguageName(book.Language)</small>
    <span class="library-open">@L.T("continue") ←</span>
   </button>
  }
@@ -96,6 +96,15 @@
  protected override void OnInitialized() => L.Changed += Updated;
  private void Updated() => _ = InvokeAsync(StateHasChanged);
  private void SetFilter(string key) => filter=key;
+ private static string LanguageName(string code) => code switch
+ {
+  "tr" => "Türkçe",
+  "az" or "az-Latn" => "Az.Turkce",
+  "az-Arab" => "تورکجه",
+  "fa" => "فارسی",
+  "en" => "English",
+  _ => code
+ };
  private void OpenBook(string id) => Nav.NavigateTo("/read/"+id);
  protected override async Task OnInitializedAsync()
  {
