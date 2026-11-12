@@ -5,7 +5,7 @@ namespace Anka;
 /// <summary>Four UI languages; book-content language is selected separately in the reader.</summary>
 public sealed class UiText
 {
-    public const string DefaultLanguage = "fa";
+    public const string DefaultLanguage = "az-Arab";
     public string Language { get; private set; } = DefaultLanguage;
     public string Direction => Language is "fa" or "az-Arab" ? "rtl" : "ltr";
     public event Action? Changed;
