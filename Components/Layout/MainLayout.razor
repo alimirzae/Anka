@@ -1,25 +1,56 @@
 @inherits LayoutComponentBase
-<div class="top-strip"><span>✦ آنکا، کتابخانه‌ای برای همیشه</span><span class="top-strip-en">ANKA DIGITAL READING EXPERIENCE</span></div>
+@implements IDisposable
+@inject Anka.UiText L
+@inject IJSRuntime Js
+<div class="top-strip"><span>✦ @L.T("banner")</span><span class="top-strip-en">ANKA DIGITAL READING EXPERIENCE</span></div>
 <header class="site-header">
  <div class="header-inner">
-  <a class="brand" href="/" aria-label="Anka home"><span class="brand-symbol">✦</span><span>ANKA<small>کتابخانه دیجیتال</small></span></a>
-  <div class="header-nav">
-   <a href="/">خانه</a><a href="/#discover">کشف کتاب‌ها</a><a href="/#discover">کتاب‌های رایگان</a><a href="/upload">کتابخانه من</a>
-  </div>
+  <a class="brand" href="/" aria-label="ANKA">
+    <span class="brand-symbol"><img src="/anka-bird.svg" alt="Anka Kuşu" /></span>
+    <span>ANKA<small>@L.T("brandSub")</small></span>
+  </a>
+  <nav class="header-nav" aria-label="Main navigation">
+   <a href="/">@L.T("home")</a>
+   <a href="/#discover">@L.T("discover")</a>
+   <a href="/#discover">@L.T("freeBooks")</a>
+   <a href="/#library">@L.T("myLibrary")</a>
+  </nav>
   <div class="headtools">
-   <a class="header-search" href="/#discover" aria-label="جستجوی کتاب">⌕ <span>جستجوی کتاب...</span></a>
-   <button class="theme-switch" title="حالت شب و روز" @onclick="ToggleTheme">◐</button>
-   <a href="/upload" class="header-upload"><span>＋</span> افزودن کتاب</a>
+   <a class="header-search" href="/#library" title="@L.T("search")"><span aria-hidden="true">⌕</span> @L.T("search")</a>
+   <label class="lang-select-label" for="uiLanguage"><span class="sr-only">@L.T("uiLanguage")</span><span aria-hidden="true">◉</span>
+    <select id="uiLanguage" class="lang-select" value="@L.Language" @onchange="OnLanguageChanged" aria-label="@L.T("uiLanguage")">
+     <option value="fa">فارسی</option>
+     <option value="tr">Türkçe</option>
+     <option value="az-Latn">Azərbaycan</option>
+     <option value="az-Arab">آذربایجان تورکجه‌سی</option>
+    </select>
+   </label>
+   <button class="theme-switch" title="@L.T("theme")" aria-label="@L.T("theme")" @onclick="ToggleTheme">◐</button>
+   <a href="/upload" class="header-upload"><span aria-hidden="true">＋</span> @L.T("addBook")</a>
   </div>
  </div>
 </header>
 <main>@Body</main>
 <footer class="site-footer">
- <div><strong class="footer-mark">✦ ANKA</strong><p>کتاب، زبان و فرهنگ در یک خانه.</p></div>
- <div><b>کتابخانه</b><a href="/">خانه</a><a href="/#discover">منتخب آثار</a><a href="/upload">بارگذاری کتاب</a></div>
- <div><b>درباره این نسخه</b><span>Blazor Server · SQLite · EPUB</span><span>نسخه آزمایشی — بدون حساب کاربری</span></div>
+ <div><strong class="footer-mark"><img src="/anka-bird.svg" alt="" /> ANKA</strong><p>@L.T("tagline")</p></div>
+ <div><b>@L.T("myLibrary")</b><a href="/">@L.T("home")</a><a href="/#discover">@L.T("discover")</a><a href="/upload">@L.T("addBook")</a></div>
+ <div><b>@L.T("footerAbout")</b><span>Blazor Server · SQLite · EPUB</span><span>@L.T("noAccount")</span></div>
 </footer>
 @code {
- [Inject] public IJSRuntime Js { get; set; } = default!;
- private async Task ToggleTheme() => await Js.InvokeVoidAsync("ankaReader.toggleTheme");
+ protected override void OnInitialized() => L.Changed += LanguageUpdated;
+ private void LanguageUpdated() => _ = InvokeAsync(StateHasChanged);
+ protected override async Task OnAfterRenderAsync(bool firstRender)
+ {
+  if (!firstRender) return;
+  try { var choice = await Js.InvokeAsync<string>("ankaSite.getLanguage"); L.Set(choice); }
+  catch (JSDisconnectedException) { }
+ }
+ private async Task OnLanguageChanged(ChangeEventArgs e)
+ {
+  var language = e.Value?.ToString();
+  L.Set(language);
+  await Js.InvokeVoidAsync("ankaSite.setLanguage", L.Language);
+ }
+ private Task ToggleTheme() => Js.InvokeVoidAsync("ankaReader.toggleTheme").AsTask();
+ public void Dispose() => L.Changed -= LanguageUpdated;
 }
