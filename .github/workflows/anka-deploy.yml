@@ -1,0 +1,95 @@
+name: Anka - Test, Build and IIS Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.csproj'
+      - '**/*.sln'
+      - '**/*.slnx'
+      - '**/*.cs'
+      - '**/*.razor'
+      - '**/*.json'
+      - '.github/workflows/anka-deploy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: anka-production
+  cancel-in-progress: false
+
+jobs:
+  test-build-deploy:
+    runs-on: [self-hosted, Windows, X64, anka]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      IIS_SITE: anka.iyashil.com
+      IIS_PATH: C:\inetpub\anka.iyashil.com
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate server and find web project
+        id: discover
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { throw 'Install the .NET SDK on the runner.' }
+          Import-Module WebAdministration -ErrorAction Stop
+          $site = Get-Website -Name $env:IIS_SITE -ErrorAction Stop
+          $expected = [IO.Path]::GetFullPath($env:IIS_PATH).TrimEnd('\')
+          $actual = [IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($site.physicalPath)).TrimEnd('\')
+          if ($actual -ine $expected) { throw "IIS path mismatch. Expected: $expected ; Found: $actual" }
+          $projects = @(Get-ChildItem -Path $env:GITHUB_WORKSPACE -Filter *.csproj -Recurse -File |
+            Where-Object { $_.FullName -notmatch '[\\/](bin|obj|node_modules)[\\/]' })
+          $web = @($projects | Where-Object { (Get-Content $_.FullName -Raw) -match 'Microsoft.NET.Sdk.Web' })
+          if ($web.Count -ne 1) { throw "Expected exactly one ASP.NET Core web project; found $($web.Count). Add the app source or select the web project explicitly." }
+          "project=$($web[0].FullName)" >> $env:GITHUB_OUTPUT
+          dotnet --info
+
+      - name: Restore
+        run: dotnet restore "${{ steps.discover.outputs.project }}"
+
+      - name: Build
+        run: dotnet build "${{ steps.discover.outputs.project }}" --configuration Release --no-restore
+
+      - name: Test
+        run: |
+          $tests = @(Get-ChildItem $env:GITHUB_WORKSPACE -Filter '*Tests.csproj' -Recurse -File | Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' })
+          foreach ($testProject in $tests) {
+            dotnet test $testProject.FullName --configuration Release --verbosity normal
+            if ($LASTEXITCODE -ne 0) { throw "Tests failed: $($testProject.FullName)" }
+          }
+          if ($tests.Count -eq 0) { Write-Host 'No *Tests.csproj found. Build passed, but there are no automated tests yet.' }
+
+      - name: Publish into staging directory
+        run: |
+          $staging = Join-Path $env:RUNNER_TEMP 'anka-publish'
+          if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+          dotnet publish "${{ steps.discover.outputs.project }}" --configuration Release --no-build --output $staging
+          if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
+          if (-not (Test-Path (Join-Path $staging 'web.config'))) {
+            throw 'No web.config in publish output; verify that this is an ASP.NET Core IIS project.'
+          }
+
+      - name: Deploy to isolated IIS directory
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $staging = Join-Path $env:RUNNER_TEMP 'anka-publish'
+          $dest = $env:IIS_PATH
+          if (-not (Test-Path $dest -PathType Container)) { throw "IIS destination is missing: $dest" }
+          $appOffline = Join-Path $dest 'app_offline.htm'
+          try {
+            Set-Content -LiteralPath $appOffline -Value 'Anka is being updated. Please retry shortly.' -Encoding UTF8
+            # /E overwrites app binaries, but does not delete existing data or uploads.
+            & robocopy $staging $dest /E /R:2 /W:2 /XD data uploads logs /XF appsettings.Production.json *.db *.sqlite *.sqlite3 app_offline.htm
+            if ($LASTEXITCODE -ge 8) { throw "Robocopy failed with exit code $LASTEXITCODE" }
+          } finally {
+            Remove-Item -LiteralPath $appOffline -Force -ErrorAction SilentlyContinue
+          }
+          Write-Host "Anka published to $dest; no other IIS sites were stopped."
