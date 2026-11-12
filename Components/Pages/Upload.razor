@@ -1,25 +1,31 @@
+@inject UiText UI
+@implements IDisposable
 @page "/upload"
 @inject IJSRuntime Js
 @inject NavigationManager Nav
-<div class="intro"><p class="eyebrow">ANKA COLLECTION</p><h1>افزودن کتاب EPUB</h1></div>
+<div class="intro"><p class="eyebrow">ANKA COLLECTION</p><h1>@UI.T("uploadTitle")</h1></div>
 <div class="form">
- <label for="uploadFile">فایل EPUB</label><input id="uploadFile" type="file" accept=".epub,application/epub+zip" />
- <label for="bookTitle">عنوان (اختیاری)</label><input id="bookTitle" @bind="title" maxlength="500" />
- <label for="bookAuthor">نویسنده (اختیاری)</label><input id="bookAuthor" @bind="author" maxlength="300" />
- <label for="bookLanguage">زبان</label><select id="bookLanguage" @bind="language"><option value="fa">فارسی</option><option value="az">Azərbaycan</option><option value="az-Arab">آذربایجان تورکجه‌سی</option><option value="tr">Türkçe</option></select>
- <button class="primary" disabled="@busy" @onclick="UploadBook">افزودن به کتابخانه</button>
+ <label for="uploadFile">@UI.T("file")</label><input id="uploadFile" type="file" accept=".epub,application/epub+zip" />
+ <label for="bookTitle">@UI.T("titleOptional")</label><input id="bookTitle" @bind="title" maxlength="500" />
+ <label for="bookAuthor">@UI.T("authorOptional")</label><input id="bookAuthor" @bind="author" maxlength="300" />
+ <label for="bookLanguage">@UI.T("languageOfBook")</label><select id="bookLanguage" @bind="language"><option value="fa">فارسی</option><option value="az">Azərbaycan</option><option value="az-Arab">آذربایجان تورکجه‌سی</option><option value="tr">Türkçe</option></select>
+ <button class="primary" disabled="@busy" @onclick="UploadBook">@UI.T("uploadSubmit")</button>
  <p role="status">@status</p>
 </div>
 @code {
+ protected override void OnInitialized(){ UI.Changed += Refresh; }
+ private void Refresh() => _ = InvokeAsync(StateHasChanged);
+ public void Dispose() => UI.Changed -= Refresh;
+
  private string title="",author="",language="fa",status="";
  private bool busy;
  private async Task UploadBook(){
-  busy=true;status="در حال بارگذاری...";
+  busy=true;status="@UI.T("uploading")";
   try {
    var message=await Js.InvokeAsync<string>("ankaReader.upload",title,author,language);
    if(message=="ok")Nav.NavigateTo("/");
    else status=message;
-  }catch(JSException ex){status="بارگذاری ناموفق بود: "+ex.Message;}
+  }catch(JSException ex){status="@UI.T("uploadFailed")+": ""+ex.Message;}
   finally{busy=false;}
  }
 }
