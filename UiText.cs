@@ -95,6 +95,11 @@ public sealed class UiText
         ["reload"] = ["تلاش مجدد", "Tekrar dene", "Yenidən yoxla", "یئنی‌دن یوخلا"],
         ["readerTip"] = ["با دکمه‌ها یا کلیدهای جهت‌نما ورق بزنید.", "Düğmelerle veya ok tuşlarıyla sayfa çevirin.", "Düymə və ya ox klavişləri ilə səhifə çevirin.", "دویمه‌لر یا اوخ کلیدلری ایله صفحه چئویرین."],
         ["fileMissing"] = ["فایل کتاب یافت نشد.", "Kitap dosyası bulunamadı.", "Kitab faylı tapılmadı.", "کیتاب فایلی تاپیلمادی."],
+        ["summary_kasagi"] = ["داستان دو برادر و پیامد یک دروغ.", "İki kardeşin ve bir yalanın sonuçlarının hikâyesi.", "İki qardaş və yalanın nəticələri haqqında hekayə.", "ایکی قارداش و یالانین سونوجلاری حاقیندا حکایه."],
+        ["summary_falaka"] = ["روایتی از مدرسه قدیمی و شیوه‌های سخت تربیت.", "Eski bir okul ve sert eğitim yöntemleri.", "Köhnə məktəb və sərt təhsil üsulları.", "کؤهنه مکتب و سرت تحصیل اوسوللاری."],
+        ["summary_pembe-incili-kaftan"] = ["روایت عزت‌نفس و شجاعت یک سفیر.", "Bir elçinin onur ve cesaret öyküsü.", "Bir elçinin şərəfi və cəsarəti haqqında hekayə.", "بیر ائلچینین شرف و جسارتی حاقیندا حکایه."],
+        ["summary_diyet"] = ["آهنگری آزاده و بهای استقلال او.", "Bağımsız bir demircinin öyküsü.", "Azad bir dəmirçinin hekayəsi.", "آزاد بیر دمیرچینین حکایه‌سی."],
+        ["summary_yalniz-efe"] = ["افسانه زن شجاعی در کوهستان.", "Dağlarda cesur bir kadının öyküsü.", "Dağlarda cəsur bir qadının hekayəsi.", "داغلاردا جسور بیر قادینین حکایه‌سی."],
         ["booksCategory"] = ["داستان کوتاه · ترکی", "Kısa öykü · Türkçe", "Qısa hekayə · Türkcə", "قیسا حکایه · تورکجه"],
         ["languagePreview"] = ["پیش‌نمایش زبان", "Dil önizlemesi", "Dil önbaxışı", "دیل اؤن باخیش"],
         ["previewNote"] = ["ترجمه‌های آذربایجانی فقط بخش کوتاهی از اثرند؛ متن کامل به ترکی موجود است.", "Azerbaycan çevirileri yalnızca kısa örnektir; tam metin Türkçedir.", "Azərbaycan tərcümələri qısa nümunədir; tam mətn türkcədir.", "آذربایجان ترجمه‌لری قیسا اؤرنک‌دیر؛ تام متن تورکجه‌دیر."]
