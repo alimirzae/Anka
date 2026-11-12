@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Anka;
 
-public sealed record ReadingPage(int Number, IReadOnlyList<string> Paragraphs);
+public sealed record ReadingPage(int Number, IReadOnlyList<string> Paragraphs, string Chapter);
 public sealed record ReadingDocument(string Title, string Author, string Language, IReadOnlyList<ReadingPage> Pages);
 
 /// <summary>
@@ -61,11 +61,12 @@ public sealed class EpubReadingService(IWebHostEnvironment environment, ILogger<
         var pages=new List<ReadingPage>();
         var pending=new List<string>();
         var count=0;
+        var chapterTitle=title;
         const int pageTarget=1200;
         void Flush()
         {
             if(pending.Count==0)return;
-            pages.Add(new ReadingPage(pages.Count+1,pending.ToList()));
+            pages.Add(new ReadingPage(pages.Count+1,pending.ToList(),chapterTitle));
             pending.Clear();count=0;
         }
         foreach(var spine in package.Descendants().Where(x=>x.Name.LocalName=="itemref"))
@@ -83,6 +84,9 @@ public sealed class EpubReadingService(IWebHostEnvironment environment, ILogger<
 
             var body=chapter.Descendants().FirstOrDefault(x=>x.Name.LocalName=="body");
             if(body is null)continue;
+            var firstHeading=body.Descendants().FirstOrDefault(x => x.Name.LocalName is "h1" or "h2" or "h3");
+            var fallbackHeading=firstHeading is null ? $"Section {pages.Count+1}" : string.Join(" ",firstHeading.DescendantNodes().OfType<XText>().Select(x=>x.Value)).Trim();
+            if (!string.IsNullOrWhiteSpace(fallbackHeading)) chapterTitle=fallbackHeading.Length>110 ? fallbackHeading[..110] : fallbackHeading;
             var blocks=body.Descendants().Where(x=>x.Name.LocalName is "h1" or "h2" or "h3" or "p" or "li" or "blockquote").ToList();
             if(blocks.Count==0)blocks.Add(body);
             foreach(var block in blocks)
