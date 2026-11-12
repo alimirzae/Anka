@@ -1,5 +1,5 @@
 #Requires -RunAsAdministrator
-# Safe, non-destructive preflight only: DOES NOT configure MySQL or deploy.
+# Safe, non-destructive preflight only: SQLite mode, no database setup required.
 $ErrorActionPreference = "Stop"
 Write-Host "=== Anka server preflight ==="
 $exe = "C:\Program Files\dotnet\dotnet.exe"
@@ -13,7 +13,10 @@ if ([IO.Path]::GetFullPath($site.physicalPath).TrimEnd('\') -ine "C:\inetpub\ank
 }
 Write-Host "IIS site: $($site.Name) / $($site.State)"
 Get-Service -Name "actions.runner.*" | Format-Table Name,Status -AutoSize
-if (-not (Test-Path "C:\inetpub\anka.iyashil.com\appsettings.Production.json")) {
-    Write-Warning "No production settings file. Configure database before deployment."
+$data = "C:\inetpub\anka.iyashil.com\App_Data"
+if (-not (Test-Path $data)) {
+    Write-Warning "App_Data does not exist yet; it will be created by the app or deployment."
+} else {
+    Write-Host "SQLite directory found: $data"
 }
 Write-Host "Endpoint: https://anka.iyashil.com/api/health"
