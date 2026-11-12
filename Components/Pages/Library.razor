@@ -1,29 +1,32 @@
 @page "/"
+@using MySqlConnector
 @inject NavigationManager Nav
-@inject IJSRuntime Js
-@implements IDisposable
-<div class="intro"><p class="eyebrow">ANKA DIGITAL READER</p><h1>کتابخانه من | Mənim kitabxanam</h1><p>EPUB کتاب‌ها را از گوشی یا رایانه بخوانید.</p></div>
+@inject IConfiguration Configuration
+<div class="intro"><p class="eyebrow">ANKA DIGITAL READER</p><h1>کتابخانه من | Mənim kitabxanam</h1><p>کتاب‌های EPUB را از گوشی یا رایانه بخوانید.</p></div>
 <div class="toolbar"><input @bind="search" @bind:event="oninput" placeholder="جستجوی کتاب یا نویسنده" /><span>@VisibleBooks.Count / @books.Count</span></div>
 @if(error is not null){<p role="alert">@error</p>}
 <div class="books">
  @if(books.Count == 0){<div class="empty">کتابی موجود نیست. از بخش افزودن کتاب، EPUB بارگذاری کنید.</div>}
  @foreach(var b in VisibleBooks){
-  <button class="book" @onclick="() => Nav.NavigateTo($"/read/{b.Id}")">
+  <button class="book" @key="b.Id" @onclick="() => Nav.NavigateTo($"/read/{b.Id}")">
    <div class="cover"><b>@b.Title</b><span>ANKA · EPUB</span></div>
    <div class="bookmeta"><b>@b.Title</b><small>@b.Author · @b.Language</small></div>
   </button>
  }
 </div>
 @code {
- [Inject] public IHttpClientFactory Factory { get; set; } = default!;
- [Inject] public NavigationManager Navigation { get; set; } = default!;
  private List<BookListItem> books = new();
  private string search = "";
  private string? error;
  private List<BookListItem> VisibleBooks => books.Where(b => (b.Title + " " + b.Author).Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
  protected override async Task OnInitializedAsync(){
-  try { using var http = Factory.CreateClient("local"); books = await http.GetFromJsonAsync<List<BookListItem>>("api/books") ?? new(); }
-  catch(Exception e){ error = e.Message; }
+  try {
+   var cs=Configuration.GetConnectionString("Anka")??Environment.GetEnvironmentVariable("ANKA_MYSQL_CONNECTION");
+   await using var db=new MySqlConnection(cs);
+   await db.OpenAsync();
+   await using var cmd=new MySqlCommand("SELECT id,title,author,language,original_script,bytes FROM books ORDER BY created_utc DESC",db);
+   await using var reader=await cmd.ExecuteReaderAsync();
+   while(await reader.ReadAsync())books.Add(new BookListItem(reader.GetString(0),reader.GetString(1),reader.GetString(2),reader.GetString(3),reader.GetString(4),reader.GetInt64(5)));
+  }catch(Exception){error="اتصال به کتابخانه برقرار نشد. تنظیمات MySQL را بررسی کنید.";}
  }
- public void Dispose() { }
 }
