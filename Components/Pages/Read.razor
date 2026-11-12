@@ -1,21 +1,51 @@
 @page "/read/{Id:guid}"
+@using Anka
 @inject IJSRuntime Js
 @implements IAsyncDisposable
-<div class="readerbar"><a href="/">← کتابخانه</a><h1 class="read-title">ANKA EPUB</h1>
+<div class="readerbar">
+ <a href="/">→ بازگشت به کتابخانه</a>
+ <h1 class="read-title">@(sample?.Title ?? "ANKA EPUB")</h1>
  <div class="readeractions">
-  <button @onclick="Previous">❮</button><button @onclick="Next">❯</button>
-  <button @onclick="Smaller">A−</button><button @onclick="Larger">A+</button>
-  <button @onclick="ToggleFlow">☷</button><button @onclick="ToggleTheme">◐</button>
+  <button @onclick="Previous" disabled="@(mode!="tr")" title="صفحه قبل">❮</button>
+  <button @onclick="Next" disabled="@(mode!="tr")" title="صفحه بعد">❯</button>
+  <button @onclick="Smaller" title="کوچک کردن قلم">A−</button>
+  <button @onclick="Larger" title="بزرگ کردن قلم">A+</button>
+  <button @onclick="ToggleFlow" title="نمایش پیوسته">☷</button>
+  <button @onclick="ToggleTheme" title="حالت شب">◐</button>
  </div>
 </div>
-<div class="reading"><div id="epub"></div></div>
-<p class="notice">پیشرفت مطالعه در مرورگر همین دستگاه ذخیره می‌شود.</p>
+@if(sample is not null)
+{
+ <div class="reader-lang-bar">
+  <span>زبان مطالعه:</span>
+  <button class="@(mode=="tr"?"active":"")" @onclick='() => SelectLanguage("tr")'>Türkçe · متن کامل</button>
+  <button class="@(mode=="az"?"active":"")" @onclick='() => SelectLanguage("az")'>Azərbaycan · نمونه</button>
+  <button class="@(mode=="arab"?"active":"")" @onclick='() => SelectLanguage("arab")'>آذربایجان تورکجه‌سی · اؤرنک</button>
+ </div>
+}
+<div class="reading">
+ <div id="epub" style="@(mode=="tr"?"":"display:none")"></div>
+ @if(sample is not null && mode!="tr")
+ {
+  <section class="reader-sample" dir="@(mode=="arab"?"rtl":"ltr")" lang="az">
+    <span class="reading-caption">ANKA · AZƏRBAYCAN DİLİ · NÜMUNƏ</span>
+    <h2>@sample.Title</h2>
+    <p>@(mode=="az"?sample.PreviewAz:sample.PreviewArabic)</p>
+    <div class="sample-warning">این متن فقط نمونه‌ای از ترجمه آزمایشی است؛ ترجمه کامل کتاب هنوز آماده نیست.</div>
+  </section>
+ }
+</div>
+<p class="notice">پیشرفت مطالعه EPUB در همین مرورگر ذخیره می‌شود.</p>
 @code {
- [Parameter] public Guid Id {get;set;}
+ [Parameter] public Guid Id { get;set; }
  private bool mounted;
+ private string mode="tr";
+ private CatalogBook? sample;
+ protected override void OnParametersSet(){sample=SampleCatalog.Items.FirstOrDefault(b=>CatalogImporter.BookId(b)==Id);}
  protected override async Task OnAfterRenderAsync(bool firstRender){
   if(firstRender){await Js.InvokeVoidAsync("ankaReader.open",Id.ToString());mounted=true;}
  }
+ private void SelectLanguage(string newMode){mode=newMode;}
  private Task Next()=>Js.InvokeVoidAsync("ankaReader.next").AsTask();
  private Task Previous()=>Js.InvokeVoidAsync("ankaReader.prev").AsTask();
  private Task Larger()=>Js.InvokeVoidAsync("ankaReader.font",10).AsTask();
