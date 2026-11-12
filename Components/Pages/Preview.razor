@@ -1,22 +1,24 @@
+@inject UiText UI
+@implements IDisposable
 @page "/preview/{Slug}"
 @using Anka
 @inject NavigationManager Nav
 @inject CatalogImporter Importer
 @inject IJSRuntime Js
-<div class="preview-nav"><a href="/">→ بازگشت به کتابخانه</a><span>ANKA / CLASSICS / @book?.Title</span></div>
-@if(book is null){<div class="library-empty"><h1>کتاب پیدا نشد</h1><a href="/">بازگشت</a></div>}
+<div class="preview-nav"><a href="/">→ @UI.T("back")</a><span>ANKA / CLASSICS / @book?.Title</span></div>
+@if(book is null){<div class="library-empty"><h1>@UI.T("fileMissing")</h1><a href="/">@UI.T("back")</a></div>}
 else {
 <section class="detail-layout">
  <div class="detail-book">
   <div class="book-cover detail-cover @("cover-"+book.Slug)"><span class="cover-imprint">ANKA · CLASSICS</span><span class="cover-ornament">✦</span><strong>@book.Title</strong><small>@book.Author</small><span class="cover-foot">TÜRK EDEBİYATI</span></div>
-  <a class="source-link" href="@book.SourceUrl" target="_blank" rel="noopener noreferrer">مشاهده متن اصلی در ویکی‌نبشته ↗</a>
+  <a class="source-link" href="@book.SourceUrl" target="_blank" rel="noopener noreferrer">@UI.T("openSource") ↗</a>
  </div>
  <div class="detail-content">
-  <span class="tag">داستان کلاسیک · مالکیت عمومی</span>
+  <span class="tag">@UI.T("publicDomain")</span>
   <h1 dir="ltr">@book.Title</h1>
-  <p class="detail-author">نوشته @book.Author</p>
+  <p class="detail-author">@UI.T("author") @book.Author</p>
   <p>@book.Summary</p>
-  <div class="book-stats"><span>◈ زبان اصلی: ترکی استانبولی</span><span>◈ EPUB</span><span>◈ بدون ثبت‌نام</span></div>
+  <div class="book-stats"><span>◈ @UI.T("originalLanguage")</span><span>◈ EPUB</span><span>◈ @UI.T("noAuth")</span></div>
   <div class="preview-tabs" aria-label="انتخاب زبان مطالعه">
    <button class="@(mode=="tr"?"active":"")" @onclick='() => SetMode("tr")'>Türkçe</button>
    <button class="@(mode=="az"?"active":"")" @onclick='() => SetMode("az")'>Azərbaycan (Latin)</button>
@@ -26,10 +28,10 @@ else {
    <span class="reading-caption">@(mode=="tr"?"TÜRKÇE · ÖN İZLEME":mode=="az"?"AZƏRBAYCAN DİLİ · NÜMUNƏ":"آذربایجان تورکجه‌سی · اؤرنک")</span>
    <p>@(mode=="tr"?book.PreviewTr:mode=="az"?book.PreviewAz:book.PreviewArabic)</p>
   </div>
-  <p class="preview-disclaimer">توجه: متن آذربایجانی بالا ترجمه آزمایشیِ بخش کوتاهی از داستان است، نه ترجمه کامل اثر. نسخه کامل اصیل به ترکی استانبولی ارائه می‌شود.</p>
+  <p class="preview-disclaimer">@UI.T("previewNote")</p>
   <div class="detail-actions">
-   <button class="btn btn-dark" disabled="@busy" @onclick="OpenFullBook">@(busy?"در حال دریافت کتاب...":"مطالعه متن کامل ترکی ←")</button>
-   <a class="btn btn-outline" href="/upload">افزودن کتاب دیگر</a>
+   <button class="btn btn-dark" disabled="@busy" @onclick="OpenFullBook">@(busy?"@UI.T("preparing")":"@UI.T("readFull") ←")</button>
+   <a class="btn btn-outline" href="/upload">@UI.T("addBook")</a>
   </div>
   @if(!string.IsNullOrWhiteSpace(error)){<p class="notice" role="alert">@error</p>}
  </div>
