@@ -24,6 +24,16 @@ public sealed class AzerbaijaniBookSeedWorker(
         ("Uşaq_və_pul", "Uşaq və pul", "Mirzə Ələkbər Sabir")
     ];
 
+    public static Guid? OtherScript(Guid id)
+    {
+        foreach (var work in Works)
+        {
+            if (Id(work.Slug, "az-Latn") == id) return Id(work.Slug, "az-Arab");
+            if (Id(work.Slug, "az-Arab") == id) return Id(work.Slug, "az-Latn");
+        }
+        return null;
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await Task.Delay(TimeSpan.FromSeconds(8), stoppingToken);
@@ -53,7 +63,10 @@ public sealed class AzerbaijaniBookSeedWorker(
                 // Remove page furniture before extracting the text blocks.
                 text = Regex.Replace(text, @"<div\b[^>]*class\s*=\s*[""'][^""']*(?:mw-references|printfooter|catlinks)[^""']*[""'][^>]*>.*?</div>",
                     "", RegexOptions.IgnoreCase | RegexOptions.Singleline, TimeSpan.FromSeconds(5));
-                var candidates = Regex.Matches(text, @"<(?:p|dd|div)\b[^>]*>(.*?)</(?:p|dd|div)>",
+                var poem = Regex.Match(text, @"<div\b[^>]*class\s*=\s*[""'][^""']*poem[^""']*[""'][^>]*>(.*?)</div>",
+                    RegexOptions.IgnoreCase | RegexOptions.Singleline, TimeSpan.FromSeconds(5));
+                var sourceHtml = poem.Success ? poem.Groups[1].Value : text;
+                var candidates = Regex.Matches(sourceHtml, @"<(?:p|dd|div)\b[^>]*>(.*?)</(?:p|dd|div)>",
                     RegexOptions.IgnoreCase | RegexOptions.Singleline, TimeSpan.FromSeconds(5))
                     .Select(m => m.Groups[1].Value)
                     .Select(t => Regex.Replace(t, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase))
@@ -61,7 +74,11 @@ public sealed class AzerbaijaniBookSeedWorker(
                     .Select(t => Regex.Replace(t, @"[ \t]+", " ").Trim())
                     .Where(t => t.Length >= 25 && !t.Contains("Vikimənbə", StringComparison.OrdinalIgnoreCase))
                     .ToList();
-                var verses = candidates.OrderByDescending(t => t.Length).FirstOrDefault();
+                var verses = poem.Success
+                    ? WebUtility.HtmlDecode(Regex.Replace(
+                        Regex.Replace(sourceHtml, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase),
+                        @"<[^>]+>", " ")).Trim()
+                    : candidates.OrderByDescending(t => t.Length).FirstOrDefault();
                 if (verses is null || verses.Length < 100)
                     throw new InvalidDataException("No substantive Azerbaijani text at source " + slug);
 
