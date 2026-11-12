@@ -45,8 +45,8 @@
  }
  else if(sample is not null)
  {
-  <section class="reader-paper reader-preview-paper" dir="@(mode=="arab"?"rtl":"ltr")" lang="az">
-   <div class="paper-eyebrow">ANKA · AZƏRBAYCAN</div><h2 class="paper-title">@sample.Title</h2>
+  <section class="reader-paper reader-preview-paper" dir="@(mode=="arab"?"rtl":"ltr")" lang="@(mode=="arab"?"az-Arab":"az-Latn")">
+   <div class="paper-eyebrow">ANKA · Az.Turkce / تورکجه</div><h2 class="paper-title">@sample.Title</h2>
    <article class="paper-text" style="font-size:@(fontSize)px"><p>@(mode=="az"?sample.PreviewAz:sample.PreviewArabic)</p></article>
    <p class="sample-warning">@L.T("sampleWarning")</p>
   </section>
