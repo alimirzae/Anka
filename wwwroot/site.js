@@ -1,6 +1,6 @@
 (() => {
  const allowed = new Set(["fa","tr","az-Latn","az-Arab"]);
- const safe = lang => allowed.has(lang) ? lang : "fa";
+ const safe = lang => allowed.has(lang) ? lang : "az-Arab";
  let keyHandler=null;
  window.ankaSite = {
   getLanguage() { return safe(localStorage.getItem("anka-ui-lang")); },
