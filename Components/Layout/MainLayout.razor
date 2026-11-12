@@ -1,0 +1,12 @@
+@inherits LayoutComponentBase
+<header>
+ <a class="brand" href="/">✦ ANKA <small>Digital Library</small></a>
+ <nav><a href="/">کتابخانه / Kitabxana</a><a href="/upload">افزودن کتاب / Kitap yükle</a></nav>
+ <div class="headtools"><button @onclick="ToggleTheme">◐</button></div>
+</header>
+<main>@Body</main>
+<footer>ANKA · Blazor Server · MySQL · EPUB</footer>
+@code {
+ [Inject] public IJSRuntime Js { get; set; } = default!;
+ private async Task ToggleTheme() => await Js.InvokeVoidAsync("ankaReader.toggleTheme");
+}

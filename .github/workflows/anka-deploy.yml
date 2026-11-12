@@ -10,6 +10,8 @@ on:
       - '**/*.slnx'
       - '**/*.cs'
       - '**/*.razor'
+      - 'wwwroot/**'
+      - 'Components/**'
       - '**/*.json'
       - '.github/workflows/anka-deploy.yml'
 
@@ -18,11 +20,11 @@ permissions:
 
 concurrency:
   group: anka-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   test-build-deploy:
-    runs-on: [self-hosted, Windows, X64, anka]
+    runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 45
     defaults:
       run:

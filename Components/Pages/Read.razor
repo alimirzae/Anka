@@ -1,0 +1,26 @@
+@page "/read/{Id:guid}"
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+<div class="readerbar"><a href="/">← کتابخانه</a><h1 class="read-title">ANKA EPUB</h1>
+ <div class="readeractions">
+  <button @onclick="Previous">❮</button><button @onclick="Next">❯</button>
+  <button @onclick="Smaller">A−</button><button @onclick="Larger">A+</button>
+  <button @onclick="ToggleFlow">☷</button><button @onclick="ToggleTheme">◐</button>
+ </div>
+</div>
+<div class="reading"><div id="epub"></div></div>
+<p class="notice">پیشرفت مطالعه در مرورگر همین دستگاه ذخیره می‌شود.</p>
+@code {
+ [Parameter] public Guid Id {get;set;}
+ private bool mounted;
+ protected override async Task OnAfterRenderAsync(bool firstRender){
+  if(firstRender){await Js.InvokeVoidAsync("ankaReader.open",Id.ToString());mounted=true;}
+ }
+ private Task Next()=>Js.InvokeVoidAsync("ankaReader.next").AsTask();
+ private Task Previous()=>Js.InvokeVoidAsync("ankaReader.prev").AsTask();
+ private Task Larger()=>Js.InvokeVoidAsync("ankaReader.font",10).AsTask();
+ private Task Smaller()=>Js.InvokeVoidAsync("ankaReader.font",-10).AsTask();
+ private Task ToggleFlow()=>Js.InvokeVoidAsync("ankaReader.flow").AsTask();
+ private Task ToggleTheme()=>Js.InvokeVoidAsync("ankaReader.toggleTheme").AsTask();
+ public async ValueTask DisposeAsync(){if(mounted)try{await Js.InvokeVoidAsync("ankaReader.close");}catch(JSDisconnectedException){}}
+}

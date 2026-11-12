@@ -1,6 +1,6 @@
 # ANKA — EPUB library (Phase 1)
 
-ASP.NET Core 10, MySQL, EPUB.js. Anonymous local/community prototype: public upload is intentionally **not authenticated** and must be protected at the reverse proxy before Internet exposure. Use a private or IP-allowlisted staging environment.
+ASP.NET Core 10 **Blazor Server (Interactive Server rendering)**, MySQL, EPUB.js. Anonymous local/community prototype: public upload is intentionally **not authenticated** and must be protected at the reverse proxy before Internet exposure. Use a private or IP-allowlisted staging environment.
 
 ## Features
 - MySQL-backed EPUB collection and validated EPUB uploads (50 MB max)

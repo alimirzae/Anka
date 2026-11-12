@@ -1,0 +1,35 @@
+@page "/upload"
+@inject IJSRuntime Js
+@inject NavigationManager Nav
+<div class="intro"><p class="eyebrow">ANKA COLLECTION</p><h1>افزودن کتاب EPUB</h1></div>
+<div class="form">
+ <label>فایل EPUB</label><InputFile OnChange="Selected" accept=".epub" />
+ <label>عنوان (اختیاری)</label><input @bind="title" />
+ <label>نویسنده (اختیاری)</label><input @bind="author" />
+ <label>زبان</label><select @bind="language"><option value="fa">فارسی</option><option value="az">Azərbaycan</option><option value="az-Arab">آذربایجان تورکجه‌سی</option><option value="tr">Türkçe</option></select>
+ <button class="primary" disabled="@busy" @onclick="UploadBook">افزودن به کتابخانه</button>
+ <p role="status">@status</p>
+</div>
+@code {
+ [Inject] public IHttpClientFactory Factory { get; set; } = default!;
+ private IBrowserFile? file;
+ private string title="",author="",language="fa",status="";
+ private bool busy;
+ private void Selected(InputFileChangeEventArgs args) {file=args.File;status=file.Name;}
+ private async Task UploadBook(){
+  if(file is null){status="ابتدا فایل EPUB را انتخاب کنید.";return;}
+  busy=true;status="در حال بارگذاری...";
+  try {
+   using var form=new MultipartFormDataContent();
+   using var stream=file.OpenReadStream(50L*1024*1024);
+   using var content=new StreamContent(stream);
+   content.Headers.ContentType=new System.Net.Http.Headers.MediaTypeHeaderValue("application/epub+zip");
+   form.Add(content,"file",file.Name);
+   form.Add(new StringContent(title),"title");form.Add(new StringContent(author),"author");form.Add(new StringContent(language),"language");
+   using var http=Factory.CreateClient("local");
+   using var response=await http.PostAsync("api/books",form);
+   if(!response.IsSuccessStatusCode){status=await response.Content.ReadAsStringAsync();return;}
+   Nav.NavigateTo("/");
+  }catch(Exception e){status=e.Message;}finally{busy=false;}
+ }
+}

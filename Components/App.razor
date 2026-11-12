@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <base href="/" />
+  <title>Anka | کتابخانه</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+<body>
+  <Routes @rendermode="InteractiveServer" />
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+  <script src="/reader.js"></script>
+  <script src="_framework/blazor.web.js"></script>
+</body>
+</html>
