@@ -32,9 +32,11 @@
    <button class="btn btn-dark" @onclick="LoadBook">@L.T("reload")</button><a class="btn btn-outline" href="/">@L.T("back")</a></section>
  }
  else if(book is null){<div class="reader-message" role="status">@L.T("readerLoading")</div>}
- else if(mode=="tr")
+ else if(CanShowBook)
  {
-  <section class="reader-paper" lang="tr" dir="ltr">
+  <section class="reader-paper reader-paper-with-arrows" lang="@ContentLanguage" dir="@ContentDirection">
+   <button class="reader-side-turn reader-side-prev" @onclick="PreviousPage" disabled="@(pageIndex==0)" aria-label="@L.T("previousPage")" title="@L.T("previousPage")"><span aria-hidden="true">‹</span></button>
+   <button class="reader-side-turn reader-side-next" @onclick="NextPage" disabled="@(pageIndex>=book.Pages.Count-1)" aria-label="@L.T("nextPage")" title="@L.T("nextPage")"><span aria-hidden="true">›</span></button>
    <div class="paper-eyebrow">ANKA · EPUB READER</div><h2 class="paper-title">@book.Title</h2><div class="paper-byline">@book.Author</div>
    <article class="paper-text" style="font-size:@(fontSize)px">
     @foreach(var paragraph in book.Pages[pageIndex].Paragraphs){<p>@paragraph</p>}
@@ -71,7 +73,10 @@
  private int fontSize=20;
  private DotNetObjectReference<Read>? callback;
  private bool restored;
- private bool CanTurn=>mode=="tr" && book is not null;
+ private bool CanShowBook => book is not null && (sample is null || mode=="tr");
+ private bool CanTurn => CanShowBook;
+ private string ContentLanguage => sample is not null ? "tr" : (book?.Language ?? "tr");
+ private string ContentDirection => ContentLanguage is "az-Arab" or "fa" ? "rtl" : "ltr";
  protected override void OnInitialized()=>L.Changed+=RefreshUi;
  private void RefreshUi()=>_=InvokeAsync(StateHasChanged);
  protected override async Task OnParametersSetAsync()
