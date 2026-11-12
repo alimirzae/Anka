@@ -2,12 +2,19 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
 using Anka.Components;
+using Anka;
 using Microsoft.Data.Sqlite;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 60L * 1024 * 1024);
 builder.Services.AddProblemDetails();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddHttpClient("wikisource", client => {
+    client.Timeout=TimeSpan.FromSeconds(35);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("AnkaReader/1.0 (public domain book collection)");
+});
+builder.Services.AddSingleton<CatalogImporter>();
+builder.Services.AddHostedService<CatalogSeedWorker>();
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStaticFiles();
