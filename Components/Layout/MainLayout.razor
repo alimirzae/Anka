@@ -1,56 +1,48 @@
 @inherits LayoutComponentBase
 @implements IDisposable
-@inject Anka.UiText L
+@inject UiText UI
 @inject IJSRuntime Js
-<div class="top-strip"><span>✦ @L.T("banner")</span><span class="top-strip-en">ANKA DIGITAL READING EXPERIENCE</span></div>
-<header class="site-header">
+
+<div class="top-strip"><span>✦ @UI.T("banner")</span><span class="top-strip-en">ANKA DIGITAL READING EXPERIENCE</span></div>
+<header class="site-header" dir="@UI.Direction">
  <div class="header-inner">
-  <a class="brand" href="/" aria-label="ANKA">
-    <span class="brand-symbol"><img src="/anka-bird.svg" alt="Anka Kuşu" /></span>
-    <span>ANKA<small>@L.T("brandSub")</small></span>
-  </a>
+  <a class="brand" href="/" aria-label="Anka home"><img src="/anka-bird.svg" alt="Anka Kuşu" class="brand-phoenix" /><span>ANKA<small>@UI.T("brandSub")</small></span></a>
   <nav class="header-nav" aria-label="Main navigation">
-   <a href="/">@L.T("home")</a>
-   <a href="/#discover">@L.T("discover")</a>
-   <a href="/#discover">@L.T("freeBooks")</a>
-   <a href="/#library">@L.T("myLibrary")</a>
+   <a href="/">@UI.T("home")</a><a href="/#discover">@UI.T("discover")</a><a href="/#discover">@UI.T("freeBooks")</a><a href="/upload">@UI.T("myLibrary")</a>
   </nav>
   <div class="headtools">
-   <a class="header-search" href="/#library" title="@L.T("search")"><span aria-hidden="true">⌕</span> @L.T("search")</a>
-   <label class="lang-select-label" for="uiLanguage"><span class="sr-only">@L.T("uiLanguage")</span><span aria-hidden="true">◉</span>
-    <select id="uiLanguage" class="lang-select" value="@L.Language" @onchange="OnLanguageChanged" aria-label="@L.T("uiLanguage")">
-     <option value="fa">فارسی</option>
-     <option value="tr">Türkçe</option>
-     <option value="az-Latn">Azərbaycan</option>
-     <option value="az-Arab">آذربایجان تورکجه‌سی</option>
+   <label class="ui-language" for="uiLanguage">🌐 <span>@UI.T("uiLanguage")</span>
+    <select id="uiLanguage" value="@UI.Language" @onchange="LanguageChanged" aria-label="@UI.T("uiLanguage")">
+     <option value="fa">فارسی</option><option value="tr">Türkçe</option>
+     <option value="az-Latn">Azərbaycanca</option><option value="az-Arab">آذربایجان تورکجه‌سی</option>
     </select>
    </label>
-   <button class="theme-switch" title="@L.T("theme")" aria-label="@L.T("theme")" @onclick="ToggleTheme">◐</button>
-   <a href="/upload" class="header-upload"><span aria-hidden="true">＋</span> @L.T("addBook")</a>
+   <a class="header-search" href="/#shelf" aria-label="@UI.T("search")">⌕ <span>@UI.T("search")</span></a>
+   <button class="theme-switch" title="@UI.T("theme")" @onclick="ToggleTheme">◐</button>
+   <a href="/upload" class="header-upload"><span>＋</span> @UI.T("addBook")</a>
   </div>
  </div>
 </header>
-<main>@Body</main>
-<footer class="site-footer">
- <div><strong class="footer-mark"><img src="/anka-bird.svg" alt="" /> ANKA</strong><p>@L.T("tagline")</p></div>
- <div><b>@L.T("myLibrary")</b><a href="/">@L.T("home")</a><a href="/#discover">@L.T("discover")</a><a href="/upload">@L.T("addBook")</a></div>
- <div><b>@L.T("footerAbout")</b><span>Blazor Server · SQLite · EPUB</span><span>@L.T("noAccount")</span></div>
+<main dir="@UI.Direction">@Body</main>
+<footer class="site-footer" dir="@UI.Direction">
+ <div><strong class="footer-mark"><img src="/anka-bird.svg" alt="" class="footer-phoenix"/> ANKA</strong><p>@UI.T("tagline")</p></div>
+ <div><b>@UI.T("myLibrary")</b><a href="/">@UI.T("home")</a><a href="/#discover">@UI.T("discover")</a><a href="/upload">@UI.T("uploadTitle")</a></div>
+ <div><b>@UI.T("footerAbout")</b><span>Blazor Server · SQLite · EPUB</span><span>@UI.T("noAccount")</span></div>
 </footer>
 @code {
- protected override void OnInitialized() => L.Changed += LanguageUpdated;
- private void LanguageUpdated() => _ = InvokeAsync(StateHasChanged);
- protected override async Task OnAfterRenderAsync(bool firstRender)
- {
-  if (!firstRender) return;
-  try { var choice = await Js.InvokeAsync<string>("ankaSite.getLanguage"); L.Set(choice); }
-  catch (JSDisconnectedException) { }
+ protected override void OnInitialized() => UI.Changed += Refresh;
+ private void Refresh() => _ = InvokeAsync(StateHasChanged);
+ protected override async Task OnAfterRenderAsync(bool firstRender) {
+  if(firstRender) {
+   try { UI.Set(await Js.InvokeAsync<string>("ankaSite.getLanguage")); }
+   catch(JSException) { }
+  }
  }
- private async Task OnLanguageChanged(ChangeEventArgs e)
- {
-  var language = e.Value?.ToString();
-  L.Set(language);
-  await Js.InvokeVoidAsync("ankaSite.setLanguage", L.Language);
+ private async Task LanguageChanged(ChangeEventArgs e) {
+  var language=e.Value?.ToString()??"fa";
+  UI.Set(language);
+  await Js.InvokeVoidAsync("ankaSite.setLanguage",UI.Language);
  }
  private Task ToggleTheme() => Js.InvokeVoidAsync("ankaReader.toggleTheme").AsTask();
- public void Dispose() => L.Changed -= LanguageUpdated;
+ public void Dispose() => UI.Changed -= Refresh;
 }
