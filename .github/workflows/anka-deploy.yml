@@ -45,11 +45,12 @@ jobs:
           if (-not (Test-Path (Join-Path $dotnetDir 'dotnet.exe'))) { throw 'Install the .NET SDK on the runner.' }
           $env:PATH = "$dotnetDir;$env:PATH"
           Add-Content -LiteralPath $env:GITHUB_PATH -Value $dotnetDir -Encoding utf8
-          Import-Module WebAdministration -ErrorAction Stop
-          $site = Get-Website -Name $env:IIS_SITE -ErrorAction Stop
-          $expected = [IO.Path]::GetFullPath($env:IIS_PATH).TrimEnd('\')
-          $actual = [IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($site.physicalPath)).TrimEnd('\')
-          if ($actual -ine $expected) { throw "IIS path mismatch. Expected: $expected ; Found: $actual" }
+          # The runner uses NETWORK SERVICE and must not read machine-wide IIS configuration.
+          # The IIS site binding and physical path are provisioned separately by an administrator.
+          $expected = 'C:\inetpub\anka.iyashil.com'
+          if ($env:IIS_PATH -ine $expected -or -not (Test-Path -LiteralPath $expected -PathType Container)) {
+            throw 'Anka IIS deployment directory is missing or does not match the allowlisted path.'
+          }
           $projects = @(Get-ChildItem -Path $env:GITHUB_WORKSPACE -Filter *.csproj -Recurse -File |
             Where-Object { $_.FullName -notmatch '[\\/](bin|obj|node_modules)[\\/]' })
           $web = @($projects | Where-Object { (Get-Content $_.FullName -Raw) -match 'Microsoft.NET.Sdk.Web' })
