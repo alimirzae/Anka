@@ -19,10 +19,10 @@
    <a class="header-search" href="/#library" title="@L.T("search")"><span aria-hidden="true">⌕</span> @L.T("search")</a>
    <label class="lang-select-label" for="uiLanguage"><span class="sr-only">@L.T("uiLanguage")</span><span aria-hidden="true">◉</span>
     <select id="uiLanguage" class="lang-select" value="@L.Language" @onchange="OnLanguageChanged" aria-label="@L.T("uiLanguage")">
-     <option value="fa">فارسی</option>
-     <option value="tr">Türkçe</option>
-     <option value="az-Latn">Azərbaycan</option>
-     <option value="az-Arab">آذربایجان تورکجه‌سی</option>
+     <option value="fa" selected="@(L.Language=="fa")">فارسی</option>
+     <option value="tr" selected="@(L.Language=="tr")">Türkçe</option>
+     <option value="az-Latn" selected="@(L.Language=="az-Latn")">Azərbaycan</option>
+     <option value="az-Arab" selected="@(L.Language=="az-Arab")">آذربایجان تورکجه‌سی</option>
     </select>
    </label>
    <button class="theme-switch" title="@L.T("theme")" aria-label="@L.T("theme")" @onclick="ToggleTheme">◐</button>
