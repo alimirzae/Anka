@@ -8,13 +8,14 @@
 <div class="books">
  @if(books.Count == 0){<div class="empty">کتابی موجود نیست. از بخش افزودن کتاب، EPUB بارگذاری کنید.</div>}
  @foreach(var b in VisibleBooks){
-  <button class="book" @key="b.Id" @onclick="() => Nav.NavigateTo($"/read/{b.Id}")">
+  <button class="book" @key="b.Id" @onclick="() => OpenBook(b.Id)">
    <div class="cover"><b>@b.Title</b><span>ANKA · EPUB</span></div>
    <div class="bookmeta"><b>@b.Title</b><small>@b.Author · @b.Language</small></div>
   </button>
  }
 </div>
 @code {
+ private void OpenBook(string id) => Nav.NavigateTo("/read/" + id);
  private List<BookListItem> books = new();
  private string search = "";
  private string? error;
