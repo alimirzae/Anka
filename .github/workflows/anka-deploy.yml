@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 45
     defaults:
       run:
-        shell: pwsh
+        shell: powershell
     env:
       IIS_SITE: anka.iyashil.com
       IIS_PATH: C:\inetpub\anka.iyashil.com
@@ -44,7 +44,7 @@ jobs:
           $dotnetDir = 'C:\Program Files\dotnet'
           if (-not (Test-Path (Join-Path $dotnetDir 'dotnet.exe'))) { throw 'Install the .NET SDK on the runner.' }
           $env:PATH = "$dotnetDir;$env:PATH"
-          $dotnetDir >> $env:GITHUB_PATH
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $dotnetDir -Encoding utf8
           Import-Module WebAdministration -ErrorAction Stop
           $site = Get-Website -Name $env:IIS_SITE -ErrorAction Stop
           $expected = [IO.Path]::GetFullPath($env:IIS_PATH).TrimEnd('\')
@@ -54,7 +54,7 @@ jobs:
             Where-Object { $_.FullName -notmatch '[\\/](bin|obj|node_modules)[\\/]' })
           $web = @($projects | Where-Object { (Get-Content $_.FullName -Raw) -match 'Microsoft.NET.Sdk.Web' })
           if ($web.Count -ne 1) { throw "Expected exactly one ASP.NET Core web project; found $($web.Count). Add the app source or select the web project explicitly." }
-          "project=$($web[0].FullName)" >> $env:GITHUB_OUTPUT
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "project=$($web[0].FullName)" -Encoding utf8
           dotnet --info
 
       - name: Restore
