@@ -17,6 +17,7 @@ builder.Services.AddHttpClient("wikisource", client => {
 });
 builder.Services.AddSingleton<CatalogImporter>();
 builder.Services.AddHostedService<CatalogSeedWorker>();
+builder.Services.AddHostedService<AzerbaijaniBookSeedWorker>();
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStaticFiles();
