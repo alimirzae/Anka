@@ -83,14 +83,13 @@ jobs:
             throw 'No web.config in publish output; verify that this is an ASP.NET Core IIS project.'
           }
 
-      - name: Require explicit MySQL and hosting readiness
+      - name: Prepare persistent SQLite storage
         run: |
-          if (-not (Test-Path 'C:\ProgramData\Anka\deploy.ready')) {
-            throw 'Deployment blocked: configure MySQL, protect public upload access, then create C:\ProgramData\Anka\deploy.ready.'
-          }
-          if (-not (Test-Path (Join-Path $env:IIS_PATH 'appsettings.Production.json'))) {
-            throw 'Deployment blocked: create an IIS-local appsettings.Production.json with ConnectionStrings:Anka.'
-          }
+          $ErrorActionPreference = 'Stop'
+          $data = Join-Path $env:IIS_PATH 'App_Data'
+          $epubs = Join-Path $data 'epubs'
+          New-Item -ItemType Directory -Force -Path $epubs | Out-Null
+          Write-Host "Persistent SQLite storage: $data"
 
       - name: Deploy to isolated IIS directory
         run: |
@@ -102,9 +101,13 @@ jobs:
           try {
             Set-Content -LiteralPath $appOffline -Value 'Anka is being updated. Please retry shortly.' -Encoding UTF8
             # /E overwrites app binaries, but does not delete existing data or uploads.
-            & robocopy $staging $dest /E /R:2 /W:2 /XD data uploads logs /XF appsettings.Production.json *.db *.sqlite *.sqlite3 app_offline.htm
+            & robocopy $staging $dest /E /R:2 /W:2 /XD App_Data data uploads logs /XF appsettings.Production.json *.db *.db-shm *.db-wal *.sqlite *.sqlite3 app_offline.htm
             if ($LASTEXITCODE -ge 8) { throw "Robocopy failed with exit code $LASTEXITCODE" }
           } finally {
             Remove-Item -LiteralPath $appOffline -Force -ErrorAction SilentlyContinue
           }
-          Write-Host "Anka published to $dest; no other IIS sites were stopped."
+          Write-Host "Anka published to $dest; persistent App_Data was preserved."
+          try {
+            $health = Invoke-WebRequest -Uri 'http://localhost/api/health' -Headers @{ Host = $env:IIS_SITE } -UseBasicParsing -TimeoutSec 20
+            if ($health.StatusCode -ne 200) { Write-Warning "Local health check returned $($health.StatusCode)" }
+          } catch { Write-Warning "HTTP health check has not passed: $($_.Exception.Message)" }
