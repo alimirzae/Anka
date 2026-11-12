@@ -5,7 +5,7 @@
  <div class="headtools"><button @onclick="ToggleTheme">◐</button></div>
 </header>
 <main>@Body</main>
-<footer>ANKA · Blazor Server · MySQL · EPUB</footer>
+<footer>ANKA · Blazor Server · SQLite · EPUB</footer>
 @code {
  [Inject] public IJSRuntime Js { get; set; } = default!;
  private async Task ToggleTheme() => await Js.InvokeVoidAsync("ankaReader.toggleTheme");
