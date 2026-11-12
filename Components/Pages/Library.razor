@@ -58,7 +58,7 @@
  @if(VisibleBooks.Count == 0){<div class="library-empty"><div>▤</div><strong>کتابخانه شما منتظر کتاب‌های تازه است</strong><p>از آثار منتخب بالا شروع کنید یا فایل EPUB خودتان را اضافه کنید.</p></div>}
  @foreach(var b in VisibleBooks)
  {
-  <button class="library-book" @key="b.Id" @onclick="() => Nav.NavigateTo("/read/" + b.Id)">
+  <button class="library-book" @key="b.Id" @onclick="() => OpenBook(b.Id)">
     <div class="small-cover"><span>ANKA</span><strong>@b.Title</strong><small>@b.Author</small></div>
     <strong>@b.Title</strong><small>@b.Author · @b.Language</small><span class="library-open">ادامه مطالعه ←</span>
   </button>
@@ -66,6 +66,7 @@
  </div>
 </section>
 @code {
+ private void OpenBook(string id) => Nav.NavigateTo("/read/" + id);
  private List<BookListItem> books = new();
  private string search="", filter="";
  private string? error;
