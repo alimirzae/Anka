@@ -36,7 +36,7 @@ public sealed class UiText
         ["dayNight"] = ["مطالعه روز و شب", "Gündüz / gece okuma", "Gündüz / gecə oxu", "گوندوز / گئجه اوخو"],
         ["dayNightDetail"] = ["اندازه قلم و ظاهر", "Yazı boyutu ve tema", "Şrift ölçüsü və mövzu", "یازی اؤلچوسو و تم"],
         ["threeScripts"] = ["سه حالت مطالعه", "Üç okuma seçeneği", "Üç oxu seçimi", "اوچ اوخو سئچیمی"],
-        ["threeScriptsDetail"] = ["ترکی، آذربایجانی لاتین و عربی", "Türkçe ve iki Azerbaycan yazısı", "Türkcə və iki Azərbaycan yazısı", "تورکجه و ایکی آذربایجان یازیسی"],
+        ["threeScriptsDetail"] = ["Türkçe و Az.Turkce با خط لاتین؛ تورکجه با خط عربی", "Türkçe, Az.Turkce (Latin) ve تورکجه (Arap alfabesi)", "Türkçe, Az.Turkce (latın) və تورکجه (ərəb əlifbası)", "Türkçe و Az.Turkce لاتین؛ تورکجه عرب الفباسی"],
         ["responsive"] = ["در همه دستگاه‌ها", "Tüm cihazlarda", "Bütün cihazlarda", "بوتون جیحازلارد‌ا"],
         ["responsiveDetail"] = ["موبایل و دسکتاپ", "Telefon ve bilgisayar", "Telefon və kompüter", "تلفون و کمپیوتر"],
         ["editorChoice"] = ["منتخب سردبیر", "Editörün seçimi", "Redaktorun seçimi", "رداکتورون سئچیمی"],
@@ -49,7 +49,7 @@ public sealed class UiText
         ["adventure"] = ["ماجراجویی", "Macera", "Macəra", "ماجرا"],
         ["viewBook"] = ["مشاهده کتاب", "Kitabı incele", "Kitaba bax", "کیتابا باخ"],
         ["previewThree"] = ["پیش‌نمایش سه‌زبانه", "Üç dilli önizleme", "Üç dilli önbaxış", "اوچ دیللی اؤن باخیش"],
-        ["sourceNote"] = ["آذربایجانی فعلاً تنها نمونه ترجمه است؛ نسخه کامل، ترکی استانبولی است.", "Azerbaycanca yalnızca örnek çeviri; tam metin Türkçedir.", "Azərbaycanca hələlik yalnız nümunə tərcümədir; tam mətn türkcədir.", "آذربایجانجا هله‌لیک یالنیز اؤرنک ترجمه‌دیر؛ تام متن تورکجه‌دیر."],
+        ["sourceNote"] = ["متن کامل Türkçe در دسترس است؛ نسخه‌های Az.Turkce و تورکجه این داستان‌ها فعلاً نمونه کوتاه‌اند.", "Türkçe tam metin mevcut; Az.Turkce ve تورکجه sürümleri şimdilik kısa örnekler.", "Türkçe tam mətn mövcuddur; Az.Turkce və تورکجه hələlik qısa nümunələrdir.", "Türkçe تام متن واردیر؛ Az.Turkce و تورکجه نسخه‌لری هله‌لیک قیسا اؤرنک‌لردیر."],
         ["source"] = ["منبع", "Kaynak", "Mənbə", "منبع"],
         ["yourShelf"] = ["کتابخانه شما", "Kitaplığınız", "Kitab rəfiniz", "کیتاب رفی‌نیز"],
         ["shelfDescription"] = ["EPUBهای آپلودشده و داستان‌های واردشده", "Yüklediğiniz EPUB ve eklenen öyküler", "Yüklədiyiniz EPUB və əlavə olunan hekayələr", "یوکله‌دیگینیز EPUB و آرتیریلان حکایه‌لر"],
@@ -65,8 +65,8 @@ public sealed class UiText
         ["noAuth"] = ["بدون ثبت‌نام", "Kayıt gerekmez", "Qeydiyyatsız", "قئیدیاتسیز"],
         ["readingLanguage"] = ["زبان متن", "Metin dili", "Mətnin dili", "متنین دیلی"],
         ["originalFull"] = ["Türkçe · متن کامل", "Türkçe · Tam metin", "Türkçe · Tam mətn", "Türkçe · تام متن"],
-        ["latinSample"] = ["Azərbaycan · نمونه لاتین", "Azerbaycanca · Latin örneği", "Azərbaycanca · Latın nümunəsi", "آذربایجانجا · لاتین اؤرنک"],
-        ["arabicSample"] = ["آذربایجانی · نمونه خط عربی", "Azerbaycanca · Arap yazısı örneği", "Azərbaycanca · Ərəb yazısı nümunəsi", "آذربایجانجا · عرب یازیسی اؤرنک"],
+        ["latinSample"] = ["Az.Turkce · نمونه خط لاتین", "Az.Turkce · Latin örneği", "Az.Turkce · Latın nümunəsi", "Az.Turkce · لاتین اؤرنک"],
+        ["arabicSample"] = ["تورکجه · نمونه خط عربی", "تورکجه · Arap alfabesi örneği", "تورکجه · Ərəb əlifbası nümunəsi", "تورکجه · عرب الفباسی اؤرنک"],
         ["sampleWarning"] = ["این بخش فقط نمونه ترجمه است؛ ترجمه کامل هنوز منتشر نشده است.", "Bu yalnızca örnek çeviridir; tam çeviri henüz yok.", "Bu yalnız nümunə tərcümədir; tam tərcümə hələ yoxdur.", "بو یالنیز اؤرنک ترجمه‌دیر؛ تام ترجمه هله یوخدور."],
         ["readFull"] = ["مطالعه متن کامل ترکی", "Tam Türkçe metni oku", "Tam türkcə mətni oxu", "تام تورکجه متنی اوخو"],
         ["preparing"] = ["در حال آماده‌سازی کتاب...", "Kitap hazırlanıyor...", "Kitab hazırlanır...", "کیتاب حاضیرلانیر..."],
@@ -102,7 +102,7 @@ public sealed class UiText
         ["summary_yalniz-efe"] = ["افسانه زن شجاعی در کوهستان.", "Dağlarda cesur bir kadının öyküsü.", "Dağlarda cəsur bir qadının hekayəsi.", "داغلاردا جسور بیر قادینین حکایه‌سی."],
         ["booksCategory"] = ["داستان کوتاه · ترکی", "Kısa öykü · Türkçe", "Qısa hekayə · Türkcə", "قیسا حکایه · تورکجه"],
         ["languagePreview"] = ["پیش‌نمایش زبان", "Dil önizlemesi", "Dil önbaxışı", "دیل اؤن باخیش"],
-        ["previewNote"] = ["ترجمه‌های آذربایجانی فقط بخش کوتاهی از اثرند؛ متن کامل به ترکی موجود است.", "Azerbaycan çevirileri yalnızca kısa örnektir; tam metin Türkçedir.", "Azərbaycan tərcümələri qısa nümunədir; tam mətn türkcədir.", "آذربایجان ترجمه‌لری قیسا اؤرنک‌دیر؛ تام متن تورکجه‌دیر."]
+        ["previewNote"] = ["نسخه‌های Az.Turkce و تورکجه این اثر فقط نمونه کوتاه هستند؛ متن کامل به Türkçe است.", "Bu eserin Az.Turkce ve تورکجه sürümleri kısa örnektir; tam metin Türkçedir.", "Bu əsərin Az.Turkce və تورکجه variantları qısa nümunədir; tam mətn Türkçedir.", "بو اثرین Az.Turkce و تورکجه نسخه‌لری قیسا اؤرنک‌دیر؛ تام متن Türkçe دیر."]
     };
 
     private static int Index(string lang) => lang switch
