@@ -4,62 +4,100 @@
 @inject UiText L
 @inject EpubReadingService Reader
 @inject IJSRuntime Js
+@inject NavigationManager Nav
 
-<div class="reader-shell">
- <header class="readerbar">
-  <a class="reader-back" href="/">→ @L.T("back")</a>
-  <div class="reader-book-heading"><small>ANKA · @L.T("reader")</small><h1 class="read-title">@(book?.Title ?? sample?.Title ?? "EPUB")</h1><span>@book?.Author</span></div>
-  <div class="readeractions">
-   <button class="reader-tool" @onclick="FontSmaller" title="@L.T("decreaseFont")" aria-label="@L.T("decreaseFont")">A−</button>
-   <button class="reader-tool" @onclick="FontLarger" title="@L.T("increaseFont")" aria-label="@L.T("increaseFont")">A+</button>
-   <button class="reader-tool" @onclick="Theme" title="@L.T("theme")" aria-label="@L.T("theme")">◐</button>
+<div class="reader-experience" dir="@L.Direction">
+ <header class="reader-controlbar">
+  <div class="reader-heading">
+   <a class="reader-return" href="/" title="@L.T("back")">← @L.T("back")</a>
+   <span class="reader-heading-title">@(book?.Title ?? sample?.Title ?? "ANKA")</span>
   </div>
+  <div class="reader-utility">
+   <button class="reader-icon-button" @onclick="ToggleContents" title="@L.T("contents")" aria-label="@L.T("contents")" aria-pressed="@showContents">☷</button>
+   <button class="reader-icon-button" @onclick="FontSmaller" title="@L.T("decreaseFont")" aria-label="@L.T("decreaseFont")">A−</button>
+   <button class="reader-icon-button" @onclick="FontLarger" title="@L.T("increaseFont")" aria-label="@L.T("increaseFont")">A+</button>
+   <button class="reader-icon-button" @onclick="Theme" title="@L.T("theme")" aria-label="@L.T("theme")">☾</button>
+   <button class="reader-icon-button @(isBookmarked?"reader-button-active":"")" @onclick="Bookmark" title="@L.T("bookmark")" aria-label="@L.T("bookmark")" aria-pressed="@isBookmarked">♧</button>
+   <button class="reader-icon-button" @onclick="HighlightSelection" title="@L.T("highlight")" aria-label="@L.T("highlight")">✎</button>
+   <button class="reader-icon-button" @onclick="TranslateSelection" title="@L.T("translate")" aria-label="@L.T("translate")">文</button>
+  </div>
+  <div class="reader-progress" title="@L.T("progressLocal")"><span>@ProgressPercent%</span><progress value="@ProgressPercent" max="100"></progress></div>
  </header>
 
- @if(sample is not null)
- {
-  <div class="reader-lang-bar" role="group" aria-label="@L.T("readingLanguage")">
-   <span>@L.T("readingLanguage"):</span>
-   <button class="@(mode=="tr"?"active":"")" aria-pressed="@(mode=="tr")" @onclick='() => SelectMode("tr")'>@L.T("originalFull")</button>
-   <button class="@(mode=="az"?"active":"")" aria-pressed="@(mode=="az")" @onclick='() => SelectMode("az")'>@L.T("latinSample")</button>
-   <button class="@(mode=="arab"?"active":"")" aria-pressed="@(mode=="arab")" @onclick='() => SelectMode("arab")'>@L.T("arabicSample")</button>
-  </div>
- }
+ @if(error is not null) {
+  <section class="reader-message" role="alert"><h2>@L.T("readerError")</h2><p>@error</p><button @onclick="LoadBook" class="btn btn-dark">@L.T("reload")</button></section>
+ } else if(book is null) {
+  <div class="reader-message" role="status">@L.T("readerLoading")</div>
+ } else {
+  <div class="reader-workspace @(showContents?"":"reader-no-contents")">
+   <aside class="reader-book-info" aria-label="@L.T("bookDetails")">
+    <div class="reader-cover-art">
+     <span>ANKA · DIGITAL LIBRARY</span>
+     <div class="reader-cover-mark">✦</div>
+     <strong>@book.Title</strong>
+     <small>@book.Author</small>
+    </div>
+    <h2>@book.Title</h2>
+    <p>@book.Author</p>
+    <div class="reader-book-tags"><span>@ContentLabel</span><span>@book.Pages.Count @L.T("page")</span></div>
+    <button class="reader-start-button" @onclick="GoToFirst">▶ @L.T("startReading")</button>
+    <button class="reader-resume-button" @onclick="ResumeBookmark" disabled="@(!bookmarkPage.HasValue)">@L.T("bookmark") · @L.T("continue")</button>
+   </aside>
 
- @if(error is not null)
- {
-  <section class="reader-message" role="alert"><span class="reader-message-icon">!</span><h2>@L.T("readerError")</h2><p>@error</p>
-   <button class="btn btn-dark" @onclick="LoadBook">@L.T("reload")</button><a class="btn btn-outline" href="/">@L.T("back")</a></section>
- }
- else if(book is null){<div class="reader-message" role="status">@L.T("readerLoading")</div>}
- else if(CanShowBook)
- {
-  <section class="reader-paper reader-paper-with-arrows" lang="@ContentLanguage" dir="@ContentDirection">
-   <button class="reader-side-turn reader-side-prev" @onclick="PreviousPage" disabled="@(pageIndex==0)" aria-label="@L.T("previousPage")" title="@L.T("previousPage")"><span aria-hidden="true">‹</span></button>
-   <button class="reader-side-turn reader-side-next" @onclick="NextPage" disabled="@(pageIndex>=book.Pages.Count-1)" aria-label="@L.T("nextPage")" title="@L.T("nextPage")"><span aria-hidden="true">›</span></button>
-   <div class="paper-eyebrow">ANKA · EPUB READER</div><h2 class="paper-title">@book.Title</h2><div class="paper-byline">@book.Author</div>
-   <article class="paper-text" style="font-size:@(fontSize)px">
-    @foreach(var paragraph in book.Pages[pageIndex].Paragraphs){<p>@paragraph</p>}
-   </article><div class="paper-watermark">✦ ANKA</div>
-  </section>
- }
- else if(sample is not null)
- {
-  <section class="reader-paper reader-preview-paper" dir="@(mode=="arab"?"rtl":"ltr")" lang="@(mode=="arab"?"az-Arab":"az-Latn")">
-   <div class="paper-eyebrow">ANKA · Az.Turkce / تورکجه</div><h2 class="paper-title">@sample.Title</h2>
-   <article class="paper-text" style="font-size:@(fontSize)px"><p>@(mode=="az"?sample.PreviewAz:sample.PreviewArabic)</p></article>
-   <p class="sample-warning">@L.T("sampleWarning")</p>
-  </section>
- }
- @if(book is not null)
- {
-  <nav class="reader-pager" aria-label="@L.T("reader")">
-   <button class="page-arrow" @onclick="PreviousPage" disabled="@(!CanTurn || pageIndex==0)" aria-label="@L.T("previousPage")"><span>‹</span> @L.T("previousPage")</button>
-   <div class="page-center"><span>@L.T("page") <strong>@(pageIndex+1)</strong> @L.T("of") <strong>@book.Pages.Count</strong></span>
-    <progress max="@book.Pages.Count" value="@(pageIndex+1)"></progress><small>@L.T("readerTip")</small></div>
-   <button class="page-arrow page-arrow-next" @onclick="NextPage" disabled="@(!CanTurn || pageIndex>=book.Pages.Count-1)" aria-label="@L.T("nextPage")">@L.T("nextPage") <span>›</span></button>
-  </nav>
-  <p class="reader-footnote">@L.T("progressLocal")</p>
+   <div class="reader-center">
+    @if(sample is not null) {
+     <div class="reader-language-choices" role="group" aria-label="@L.T("readingLanguage")">
+      <span>@L.T("readingLanguage")</span>
+      <button class="@(mode=="tr"?"active":"")" @onclick='() => SelectMode("tr")'>@L.T("originalFull")</button>
+      <button class="@(mode=="az"?"active":"")" @onclick='() => SelectMode("az")'>@L.T("latinSample")</button>
+      <button class="@(mode=="arab"?"active":"")" @onclick='() => SelectMode("arab")'>@L.T("arabicSample")</button>
+     </div>
+    }
+    <div id="ankaReadingSurface" class="reader-reading-surface" dir="@ReadingDirection" lang="@ReadingLanguage" aria-label="@L.T("reader")">
+     <button class="reader-flip reader-flip-left" @onclick="LeftTurn" disabled="@(!CanTurnLeft)" aria-label="@LeftTurnLabel" title="@LeftTurnLabel">‹</button>
+     <div id="ankaReaderScroll" class="reader-page-scroll">
+      <div class="reader-page-content">
+       <div class="reader-inner-kicker">ANKA · @L.T("reader")</div>
+       <h2>@book.Title</h2>
+       <div class="reader-inner-author">@book.Author</div>
+       @if(mode=="tr" || sample is null) {
+        <div id="ankaReaderText" class="reader-prose" style="font-size:@(fontSize)px" dir="@ReadingDirection">
+         @foreach(var paragraph in book.Pages[pageIndex].Paragraphs) { <p>@paragraph</p> }
+        </div>
+       } else {
+        <div id="ankaReaderText" class="reader-prose" style="font-size:@(fontSize)px" dir="@ReadingDirection">
+         <p>@(mode=="az"?sample.PreviewAz:sample.PreviewArabic)</p>
+         <p class="reader-sample-note">@L.T("sampleWarning")</p>
+        </div>
+       }
+      </div>
+     </div>
+     <button class="reader-flip reader-flip-right" @onclick="RightTurn" disabled="@(!CanTurnRight)" aria-label="@RightTurnLabel" title="@RightTurnLabel">›</button>
+    </div>
+    <footer class="reader-bottom-controls">
+     <button @onclick="PreviousPage" disabled="@(!CanTurn || pageIndex==0)" aria-label="@L.T("previousPage")">‹ @L.T("previousPage")</button>
+     <div class="reader-page-position">
+      @L.T("page") @(pageIndex+1) @L.T("of") @book.Pages.Count
+      <progress value="@(pageIndex+1)" max="@book.Pages.Count"></progress>
+      <small>@L.T("readerTip")</small>
+     </div>
+     <button @onclick="NextPage" disabled="@(!CanTurn || pageIndex==book.Pages.Count-1)" aria-label="@L.T("nextPage")">@L.T("nextPage") ›</button>
+    </footer>
+   </div>
+
+   @if(showContents) {
+    <aside class="reader-chapter-panel" aria-label="@L.T("contents")">
+     <div class="reader-chapters-title"><strong>@L.T("contents")</strong><button @onclick="ToggleContents" aria-label="@L.T("close")">×</button></div>
+     <nav class="reader-chapters-list">
+      @foreach(var section in Sections) {
+       <button class="@(section.Index<=pageIndex && pageIndex<section.End?"current":"")" @onclick="() => GoToPage(section.Index)">
+        <span class="chapter-indicator"></span><span>@section.Title</span>
+       </button>
+      }
+     </nav>
+    </aside>
+   }
+  </div>
  }
 </div>
 
@@ -71,48 +109,98 @@
  private string mode="tr";
  private int pageIndex;
  private int fontSize=20;
+ private bool showContents=true, isBookmarked;
+ private int? bookmarkPage;
  private DotNetObjectReference<Read>? callback;
  private bool restored;
- private bool CanShowBook => book is not null && (sample is null || mode=="tr");
- private bool CanTurn => CanShowBook;
- private string ContentLanguage => sample is not null ? "tr" : (book?.Language ?? "tr");
- private string ContentDirection => ContentLanguage is "az-Arab" or "fa" ? "rtl" : "ltr";
+ private bool CanTurn => book is not null && (sample is null || mode=="tr");
+ private string ReadingLanguage => mode=="arab" ? "az-Arab" : mode=="az" ? "az-Latn" : book?.Language ?? "tr";
+ private string ReadingDirection => ReadingLanguage is "az-Arab" or "fa" ? "rtl" : "ltr";
+ private string ContentLabel => ReadingLanguage switch { "tr"=>"Türkçe", "az-Arab"=>"تورکجه", "az-Latn" or "az"=>"Az.Turkce", "fa"=>"فارسی", "en"=>"English", _=>ReadingLanguage };
+ private bool CanTurnLeft => CanTurn && (ReadingDirection=="rtl"?pageIndex<book!.Pages.Count-1:pageIndex>0);
+ private bool CanTurnRight => CanTurn && (ReadingDirection=="rtl"?pageIndex>0:pageIndex<book!.Pages.Count-1);
+ private string LeftTurnLabel => ReadingDirection=="rtl" ? L.T("nextPage") : L.T("previousPage");
+ private string RightTurnLabel => ReadingDirection=="rtl" ? L.T("previousPage") : L.T("nextPage");
+ private int ProgressPercent => book is null ? 0 : (int)Math.Round(100.0*(pageIndex+1)/book.Pages.Count);
+ private List<(string Title,int Index,int End)> Sections
+ {
+  get {
+   var sections = new List<(string Title,int Index,int End)>();
+   if(book is null)return sections;
+   for(var i=0;i<book.Pages.Count;i++){
+    var chapter=book.Pages[i].Chapter;
+    if(sections.Count==0 || sections[^1].Title!=chapter)
+    {
+     if(sections.Count>0){var last=sections[^1];sections[^1]=(last.Title,last.Index,i);}
+     sections.Add((chapter,i,book.Pages.Count));
+    }
+   }
+   return sections;
+  }
+ }
  protected override void OnInitialized()=>L.Changed+=RefreshUi;
  private void RefreshUi()=>_=InvokeAsync(StateHasChanged);
- protected override async Task OnParametersSetAsync()
- {
+ protected override async Task OnParametersSetAsync(){
   sample=SampleCatalog.Items.FirstOrDefault(x=>CatalogImporter.BookId(x)==Id);
+  restored=false;
   await LoadBook();
  }
- private async Task LoadBook()
- {
+ private async Task LoadBook(){
   error=null;
   try{book=await Reader.OpenAsync(Id);pageIndex=0;}
   catch(Exception ex){error=ex is FileNotFoundException?L.T("fileMissing"):ex.Message;book=null;}
  }
- protected override async Task OnAfterRenderAsync(bool firstRender)
- {
-  if(!firstRender || restored)return;
+ protected override async Task OnAfterRenderAsync(bool firstRender){
+  if(restored && book is not null){
+   try { await Js.InvokeVoidAsync("ankaReading.restoreHighlights","ankaReaderText",Id.ToString(),pageIndex); }
+   catch(JSDisconnectedException){}
+   return;
+  }
+  if(book is null)return;
   restored=true;
-  try
-  {
+  try {
    var previous=await Js.InvokeAsync<int>("ankaSite.getPage",Id.ToString());
-   if(book is not null)pageIndex=Math.Clamp(previous,0,book.Pages.Count-1);
+   pageIndex=Math.Clamp(previous,0,book.Pages.Count-1);
+   bookmarkPage=await Js.InvokeAsync<int?>("ankaReading.getBookmark",Id.ToString());
+   isBookmarked=bookmarkPage==pageIndex;
    callback=DotNetObjectReference.Create(this);
    await Js.InvokeVoidAsync("ankaSite.bindKeys",callback);
+   await Js.InvokeVoidAsync("ankaReading.bind",callback,"ankaReadingSurface");
    StateHasChanged();
-  }
-  catch(JSDisconnectedException){}
+  }catch(JSDisconnectedException){}
  }
- private void SelectMode(string value)=>mode=value;
- private async Task NextPage(){if(!CanTurn || book is null)return;pageIndex=Math.Min(pageIndex+1,book.Pages.Count-1);await Save();}
- private async Task PreviousPage(){if(!CanTurn)return;pageIndex=Math.Max(0,pageIndex-1);await Save();}
+ private async Task Move(int delta){
+  if(!CanTurn || book is null)return;
+  var next=Math.Clamp(pageIndex+delta,0,book.Pages.Count-1);
+  if(next==pageIndex)return;
+  pageIndex=next;isBookmarked=bookmarkPage==pageIndex;
+  await Js.InvokeVoidAsync("ankaSite.savePage",Id.ToString(),pageIndex);
+  await Js.InvokeVoidAsync("ankaReading.resetScroll","ankaReaderScroll");
+ }
+ private Task NextPage()=>Move(1);
+ private Task PreviousPage()=>Move(-1);
+ private Task LeftTurn()=>ReadingDirection=="rtl"?NextPage():PreviousPage();
+ private Task RightTurn()=>ReadingDirection=="rtl"?PreviousPage():NextPage();
+ private Task GoToFirst()=>GoToPage(0);
+ private async Task GoToPage(int n){if(book is null)return;pageIndex=Math.Clamp(n,0,book.Pages.Count-1);await Js.InvokeVoidAsync("ankaSite.savePage",Id.ToString(),pageIndex);await Js.InvokeVoidAsync("ankaReading.resetScroll","ankaReaderScroll");}
+ private async Task Bookmark(){
+  if(book is null)return;
+  bookmarkPage = isBookmarked ? null : pageIndex;
+  isBookmarked=bookmarkPage==pageIndex;
+  await Js.InvokeVoidAsync("ankaReading.setBookmark",Id.ToString(),bookmarkPage);
+ }
+ private Task ResumeBookmark()=>bookmarkPage.HasValue?GoToPage(bookmarkPage.Value):Task.CompletedTask;
+ private void FontLarger()=>fontSize=Math.Min(36,fontSize+2);
+ private void FontSmaller()=>fontSize=Math.Max(14,fontSize-2);
+ private void ToggleContents()=>showContents=!showContents;
+ private void SelectMode(string value){mode=value;}
+ private Task Theme()=>Js.InvokeVoidAsync("ankaReader.toggleTheme").AsTask();
+ private Task HighlightSelection()=>Js.InvokeVoidAsync("ankaReading.highlightSelection","ankaReaderText",Id.ToString(),pageIndex).AsTask();
+ private Task TranslateSelection()=>Js.InvokeVoidAsync("ankaReading.translateSelection","ankaReaderText").AsTask();
  [JSInvokable] public Task TurnForward()=>InvokeAsync(NextPage);
  [JSInvokable] public Task TurnBackward()=>InvokeAsync(PreviousPage);
- private async Task Save(){try{await Js.InvokeVoidAsync("ankaSite.savePage",Id.ToString(),pageIndex);}catch(JSDisconnectedException){}}
- private void FontLarger()=>fontSize=Math.Min(34,fontSize+2);
- private void FontSmaller()=>fontSize=Math.Max(14,fontSize-2);
- private Task Theme()=>Js.InvokeVoidAsync("ankaReader.toggleTheme").AsTask();
  public void Dispose()=>L.Changed-=RefreshUi;
- public async ValueTask DisposeAsync(){try{await Js.InvokeVoidAsync("ankaSite.unbindKeys");}catch(JSDisconnectedException){}callback?.Dispose();}
+ public async ValueTask DisposeAsync(){
+  try{await Js.InvokeVoidAsync("ankaSite.unbindKeys");await Js.InvokeVoidAsync("ankaReading.unbind");}catch(JSDisconnectedException){}callback?.Dispose();
+ }
 }

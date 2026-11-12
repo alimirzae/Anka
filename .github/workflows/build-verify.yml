@@ -3,7 +3,7 @@ name: Anka - Build Verification
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, 'feature/reader-immersive-three-column']
     paths:
       - '**/*.cs'
       - '**/*.razor'
@@ -11,7 +11,7 @@ on:
       - 'wwwroot/**'
       - '.github/workflows/build-verify.yml'
   pull_request:
-    branches: [main]
+    branches: [main, 'feature/reader-side-navigation-az-editions']
 
 permissions:
   contents: read

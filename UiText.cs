@@ -13,6 +13,13 @@ public sealed class UiText
     private static readonly Dictionary<string, string[]> Messages = new(StringComparer.OrdinalIgnoreCase)
     {
         // Persian, Turkish, Azerbaijani Latin, Azerbaijani Arabic
+        ["contents"] = ["فهرست مطالب", "İçindekiler", "Mündəricat", "موندریجات"],
+        ["bookmark"] = ["نشانک", "Yer imi", "Əlfəcin", "علامت"],
+        ["highlight"] = ["هایلایت متن انتخابی", "Seçimi vurgula", "Seçiləni işarələ", "سئچیلمیش متنی ایشاره‌له"],
+        ["translate"] = ["ترجمه متن انتخابی", "Seçili metni çevir", "Seçilən mətni tərcümə et", "سئچیلن متنی ترجمه ائت"],
+        ["bookDetails"] = ["اطلاعات کتاب", "Kitap bilgileri", "Kitab məlumatı", "کیتاب معلوماتی"],
+        ["startReading"] = ["شروع مطالعه", "Okumaya başla", "Oxumağa başla", "اوخوماغا باشلا"],
+        ["close"] = ["بستن", "Kapat", "Bağla", "باغلا"],
         ["brandSub"] = ["کتابخانه دیجیتال", "Dijital Kütüphane", "Rəqəmsal kitabxana", "دیجیتال کیتابخانا"],
         ["banner"] = ["آنکا، خانه کتاب و فرهنگ", "Anka, kitapların ve kültürün evi", "Anka, kitab və mədəniyyət evi", "آنکا، کیتاب و مدنیت ائوی"],
         ["home"] = ["خانه", "Ana sayfa", "Ana səhifə", "آنا صفحه"],
