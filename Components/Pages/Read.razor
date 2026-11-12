@@ -1,26 +1,28 @@
+@inject UiText UI
+@implements IDisposable
 @page "/read/{Id:guid}"
 @using Anka
 @inject IJSRuntime Js
 @implements IAsyncDisposable
 <div class="readerbar">
- <a href="/">→ بازگشت به کتابخانه</a>
+ <a href="/">→ @UI.T("back")</a>
  <h1 class="read-title">@(sample?.Title ?? "ANKA EPUB")</h1>
  <div class="readeractions">
-  <button @onclick="Previous" disabled="@(mode!="tr")" title="صفحه قبل">❮</button>
-  <button @onclick="Next" disabled="@(mode!="tr")" title="صفحه بعد">❯</button>
-  <button @onclick="Smaller" title="کوچک کردن قلم">A−</button>
-  <button @onclick="Larger" title="بزرگ کردن قلم">A+</button>
+  <button @onclick="Previous" disabled="@(mode!="tr")" title="@UI.T("previousPage")">❮</button>
+  <button @onclick="Next" disabled="@(mode!="tr")" title="@UI.T("nextPage")">❯</button>
+  <button @onclick="Smaller" title="@UI.T("decreaseFont")">A−</button>
+  <button @onclick="Larger" title="@UI.T("increaseFont")">A+</button>
   <button @onclick="ToggleFlow" title="نمایش پیوسته">☷</button>
-  <button @onclick="ToggleTheme" title="حالت شب">◐</button>
+  <button @onclick="ToggleTheme" title="@UI.T("theme")">◐</button>
  </div>
 </div>
 @if(sample is not null)
 {
  <div class="reader-lang-bar">
-  <span>زبان مطالعه:</span>
-  <button class="@(mode=="tr"?"active":"")" @onclick='() => SelectLanguage("tr")'>Türkçe · متن کامل</button>
-  <button class="@(mode=="az"?"active":"")" @onclick='() => SelectLanguage("az")'>Azərbaycan · نمونه</button>
-  <button class="@(mode=="arab"?"active":"")" @onclick='() => SelectLanguage("arab")'>آذربایجان تورکجه‌سی · اؤرنک</button>
+  <span>@UI.T("readingLanguage"):</span>
+  <button class="@(mode=="tr"?"active":"")" @onclick='() => SelectLanguage("tr")'>@UI.T("originalFull")</button>
+  <button class="@(mode=="az"?"active":"")" @onclick='() => SelectLanguage("az")'>@UI.T("latinSample")</button>
+  <button class="@(mode=="arab"?"active":"")" @onclick='() => SelectLanguage("arab")'>@UI.T("arabicSample")</button>
  </div>
 }
 <div class="reading">
@@ -31,12 +33,16 @@
     <span class="reading-caption">ANKA · AZƏRBAYCAN DİLİ · NÜMUNƏ</span>
     <h2>@sample.Title</h2>
     <p>@(mode=="az"?sample.PreviewAz:sample.PreviewArabic)</p>
-    <div class="sample-warning">این متن فقط نمونه‌ای از ترجمه آزمایشی است؛ ترجمه کامل کتاب هنوز آماده نیست.</div>
+    <div class="sample-warning">@UI.T("sampleWarning")</div>
   </section>
  }
 </div>
-<p class="notice">پیشرفت مطالعه EPUB در همین مرورگر ذخیره می‌شود.</p>
+<p class="notice">@UI.T("progressLocal")</p>
 @code {
+ protected override void OnInitialized(){ UI.Changed += Refresh; }
+ private void Refresh() => _ = InvokeAsync(StateHasChanged);
+ public void Dispose() => UI.Changed -= Refresh;
+
  [Parameter] public Guid Id { get;set; }
  private bool mounted;
  private string mode="tr";
