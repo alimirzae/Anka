@@ -126,7 +126,7 @@ jobs:
                 throw "Reader check failed: required book did not render as a full multi-page text."
               }
             } catch {
-              Write-Warning "Could not inspect curated catalog status: $($_.Exception.Message)"
+              throw "Catalog/EPUB reading validation failed: $($_.Exception.Message)"
             }
 
           } catch {
