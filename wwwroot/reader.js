@@ -3,14 +3,15 @@ let book=null,rendition=null,id=null,size=100,scroll=false,dark=false;
 function applyTheme(){document.body.classList.toggle("dark",dark);if(rendition)rendition.themes.select(dark?"dark":"light");localStorage.setItem("anka-dark",dark?"1":"0");}
 dark=localStorage.getItem("anka-dark")==="1";
 window.ankaReader={
- async upload(title,author,language){
+ async upload(title,author,language,rights){
    const input=document.getElementById("uploadFile");
    const file=input?.files?.[0];
    if(!file)return "ابتدا یک فایل EPUB انتخاب کنید.";
    if(!file.name.toLowerCase().endsWith(".epub")||file.size>50*1024*1024)return "فقط فایل EPUB تا حجم ۵۰ مگابایت مجاز است.";
    const form=new FormData();
    form.append("file",file);form.append("title",title);form.append("author",author);form.append("language",language);
-   const response=await fetch("/api/books",{method:"POST",body:form});
+   if(!rights||rights.trim().length<12)return "Publishing-rights declaration required.";
+   const response=await fetch("/api/books",{method:"POST",body:form,headers:{"X-Anka-Rights":rights.trim()},credentials:"same-origin"});
    if(response.ok)return "ok";
    const result=await response.json().catch(()=>({}));
    return result.error||("Upload failed: "+response.status);
