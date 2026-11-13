@@ -26,6 +26,11 @@
   },
   async addShelf(bookId){const r=await fetch("/api/me/shelf/"+encodeURIComponent(bookId),{method:"POST",credentials:"same-origin"});return {ok:r.ok,status:r.status};},
   requestPublisher:(statement)=>post("/api/publisher/request",{statement}),
+  async activateFirstAdmin(secret){
+    const response=await fetch("/api/admin/bootstrap",{method:"POST",credentials:"same-origin",
+      headers:{"X-Anka-Setup-Key":secret}});
+    return {ok:response.ok,status:response.status};
+  },
   async getPublisherRequests(){
     const r=await fetch("/api/admin/publishers",{credentials:"same-origin"});
     return {ok:r.ok,items:r.ok?await r.json():[]};
