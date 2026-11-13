@@ -223,6 +223,23 @@ public sealed class UiText
         ["bookDetails"] = "Book details",
         ["startReading"] = "Start reading",
         ["close"] = "Close",
+        ["storeTitle"] = "ANKA Store",
+        ["storeSubtitle"] = "Find books and choose the edition you want to read.",
+        ["storeEmptyHint"] = "Imported books will appear here.",
+        ["searchNoResult"] = "No matching books were found.",
+        ["storeRightsNotice"] = "Purchases are not available in this preview. Publish licensed content only.",
+        ["publisherTitle"] = "ANKA Publisher",
+        ["publisherSubtitle"] = "Manage books, language editions and publication rights in one place.",
+        ["publisherStep1"] = "Publisher and rights verification",
+        ["publisherStep1Detail"] = "Confirm publisher identity and publishing rights.",
+        ["publisherStep2"] = "Books and editions",
+        ["publisherStep2Detail"] = "EPUB, cover, author and Turkce / Türkçe / Az.Turkce editions.",
+        ["publisherStep3"] = "Review and publication",
+        ["publisherStep3Detail"] = "Review content, translation status and rights.",
+        ["publisherRestricted"] = "Publisher access is not enabled yet",
+        ["publisherRestrictedDetail"] = "Publisher authentication and rights verification must be completed before accepting uploads.",
+        ["storeNav"] = "Store",
+        ["publisherNav"] = "Publishers",
     };
 
     private static int Index(string lang) => lang switch
