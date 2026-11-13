@@ -31,7 +31,7 @@
      <div class="market-book-body">
       <span class="market-language">@LanguageName(book.Language)</span>
       <h2 dir="auto">@book.Title</h2><p dir="auto">@book.Author</p>
-      <button class="btn btn-dark" @onclick="()=>Nav.NavigateTo("/read/"+book.Id)">@L.T("continue")</button>
+      <button class="btn btn-dark" @onclick='() => OpenBook(book.Id)'>@L.T("continue")</button>
      </div>
     </article>
    }
@@ -52,6 +52,7 @@
   }catch(JSException){}
   finally{loading=false;StateHasChanged();}
  }
+ private void OpenBook(string id)=>Nav.NavigateTo("/read/"+id);
  private static string LanguageName(string language)=>language switch {
   "az-Arab"=>"تورکجه","az-Latn" or "az"=>"Az.Turkce","tr"=>"Türkçe","fa"=>"فارسی","en"=>"English",_=>language
  };
