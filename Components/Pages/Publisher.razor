@@ -1,6 +1,7 @@
 @page "/publisher"
 @implements IDisposable
 @inject UiText L
+@inject IJSRuntime Js
 
 <div class="anka-publisher">
  <header class="market-intro">
@@ -13,13 +14,55 @@
   <article><span>02</span><h2>@L.T("publisherStep2")</h2><p>@L.T("publisherStep2Detail")</p></article>
   <article><span>03</span><h2>@L.T("publisherStep3")</h2><p>@L.T("publisherStep3Detail")</p></article>
  </section>
- <div class="publisher-status" role="status">
-  <strong>@L.T("publisherRestricted")</strong>
-  <p>@L.T("publisherRestrictedDetail")</p>
- </div>
+ @if(!loaded) {
+  <div class="publisher-status" role="status">@L.T("readerLoading")</div>
+ } else if(!authenticated) {
+  <div class="publisher-status">
+   <strong>@L.T("publisherRestricted")</strong>
+   <p>@L.T("accountHelp")</p>
+   <a href="/account" class="btn btn-dark">@L.T("signIn")</a>
+  </div>
+ } else if(role=="Publisher" || role=="Admin") {
+  <div class="publisher-status">
+   <strong>@L.T("publisherReady")</strong>
+   <p>@L.T("publisherReviewNotice")</p>
+   <a href="/upload" class="btn btn-dark">@L.T("addBook")</a>
+   @if(role=="Admin"){<a href="/admin" class="btn btn-outline">ANKA Admin</a>}
+  </div>
+ } else {
+  <div class="publisher-status">
+   <strong>@L.T("publisherApply")</strong>
+   <p>@L.T("publisherRightsInstructions")</p>
+   <label class="publisher-application-label" for="publisher-statement">@L.T("publisherStep1Detail")</label>
+   <textarea id="publisher-statement" class="publisher-application-input" rows="4" @bind="statement" maxlength="1500"></textarea>
+   <button class="btn btn-dark" @onclick="Apply" disabled="@busy">@L.T("publisherApply")</button>
+   @if(message is not null){<p role="status">@message</p>}
+  </div>
+ }
 </div>
 @code{
+ private bool loaded,authenticated,busy;
+ private string role="",statement="";
+ private string? message;
  protected override void OnInitialized()=>L.Changed+=Refresh;
  private void Refresh()=>_=InvokeAsync(StateHasChanged);
+ protected override async Task OnAfterRenderAsync(bool firstRender){
+  if(!firstRender)return;
+  try{
+   var result=await Js.InvokeAsync<AccountState>("ankaAccount.me");
+   authenticated=result.Authenticated;role=result.Role??"";
+  }catch(JSException){authenticated=false;}
+  loaded=true;StateHasChanged();
+ }
+ private async Task Apply(){
+  busy=true;message=null;
+  try{
+   var result=await Js.InvokeAsync<OperationResult>("ankaAccount.requestPublisher",statement);
+   message=result.Ok?L.T("publisherApplicationSent"):result.Error??L.T("accountError");
+  }catch(JSException){message=L.T("accountError");}
+  finally{busy=false;}
+ }
  public void Dispose()=>L.Changed-=Refresh;
+ private sealed class AccountState{public AccountState(){}public bool Authenticated{get;set;}public string? Role{get;set;}}
+ private sealed class OperationResult{public OperationResult(){}public bool Ok{get;set;}public string? Error{get;set;}}
 }
