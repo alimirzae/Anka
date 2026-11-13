@@ -71,6 +71,15 @@ app.Use(async (context, next) =>
     {
         context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
         context.Response.Headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
+        // Account, publisher and administrator API responses may contain private data.
+        // Prevent intermediary and browser caches from retaining these responses.
+        if (context.Request.Path.StartsWithSegments("/api/account") ||
+            context.Request.Path.StartsWithSegments("/api/admin") ||
+            context.Request.Path.StartsWithSegments("/api/publisher"))
+        {
+            context.Response.Headers["Cache-Control"] = "no-store";
+            context.Response.Headers["Pragma"] = "no-cache";
+        }
         return Task.CompletedTask;
     });
     await next();
