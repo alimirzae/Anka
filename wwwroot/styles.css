@@ -223,3 +223,16 @@ body.dark .reader-chapters-list button.current{background:#24466c}
 .account-panel input{padding:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;min-height:44px}
 .account-mode{display:flex;gap:8px}.account-mode button{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:10px;border-radius:10px}.account-mode button.active{background:var(--accent);color:white;border-color:var(--accent)}
 .account-panel>.btn{justify-content:center}.account-note,.account-message{font-size:12px;color:var(--muted)}
+
+
+.market-detail{max-width:1100px;margin:0 auto 50px}
+.market-detail-layout{display:grid;grid-template-columns:minmax(190px,280px) minmax(0,1fr);gap:28px;align-items:start;margin-top:20px}
+.market-detail-cover{aspect-ratio:.73;background:linear-gradient(135deg,#16365d,#466b9b);color:white;padding:26px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;border-radius:14px;box-shadow:var(--shadow)}
+.market-detail-cover strong{font-size:clamp(22px,3vw,31px);line-height:1.8}.market-detail-cover span{font-size:10px;letter-spacing:1px}
+.market-detail-info{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:25px}
+.market-detail-info h1{margin:12px 0 1px;font-size:clamp(22px,3vw,31px)}
+.market-detail-info>p{color:var(--muted);font-size:13px}
+.market-detail-info dl{display:grid;grid-template-columns:max-content 1fr;gap:10px 23px;font-size:13px;padding:14px 0;border-top:1px solid var(--line)}
+.market-detail-info dt{color:var(--muted)}.market-detail-info dd{margin:0}
+.market-detail-actions{display:flex;flex-wrap:wrap;gap:10px}
+@media(max-width:690px){.market-detail-layout{grid-template-columns:1fr;gap:15px}.market-detail-cover{width:190px;margin:0 auto}.market-detail-info{padding:15px}}
