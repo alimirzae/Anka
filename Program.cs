@@ -157,6 +157,40 @@ app.MapPost("/api/me/shelf/{bookId:guid}",async (Guid bookId,HttpContext context
     await accounts.AddToShelfAsync(id,bookId.ToString());
     return Results.Ok(new{ok=true});
 }).RequireAuthorization();
+
+app.MapPost("/api/admin/bootstrap",async(HttpContext context,AnkaAccountService accounts)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var secret=Environment.GetEnvironmentVariable("ANKA_ADMIN_SETUP_KEY");
+    if(string.IsNullOrWhiteSpace(secret)||secret.Length<32)return Results.StatusCode(503);
+    var provided=context.Request.Headers["X-Anka-Setup-Key"].ToString();
+    if(secret.Length!=provided.Length||!CryptographicOperations.FixedTimeEquals(
+        Encoding.UTF8.GetBytes(secret),Encoding.UTF8.GetBytes(provided)))return Results.StatusCode(403);
+    var userId=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(userId is null)return Results.Unauthorized();
+    return await accounts.BootstrapAdminAsync(userId)?Results.Ok(new{ok=true}):Results.BadRequest();
+}).RequireAuthorization().RequireRateLimiting("account");
+app.MapPost("/api/publisher/request",async(HttpContext context,AnkaAccountService accounts,AnkaRightsRequest request)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var id=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    return id is not null&&await accounts.RequestPublisherAsync(id,request.Statement??"")?
+        Results.Ok(new{ok=true}):Results.BadRequest(new{error="A statement of at least 12 characters is required."});
+}).RequireAuthorization().RequireRateLimiting("account");
+app.MapGet("/api/admin/publishers",async(AnkaAccountService accounts)=>Results.Ok(await accounts.PublisherRequestsAsync()))
+    .RequireAuthorization(policy=>policy.RequireRole("Admin"));
+app.MapPost("/api/admin/publishers/{id:guid}/review",async(Guid id,HttpContext context,AnkaAccountService accounts,AnkaReview review)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var reviewer=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(reviewer is null||!await accounts.IsCurrentRoleAsync(reviewer,"Admin"))return Results.Forbid();
+    return await accounts.ReviewPublisherAsync(id.ToString(),review.Approve)?Results.Ok(new{ok=true}):Results.NotFound();
+}).RequireAuthorization(policy=>policy.RequireRole("Admin"));
+app.MapGet("/api/admin/submissions",async(AnkaAccountService accounts)=>Results.Ok(await accounts.BookSubmissionsAsync()))
+    .RequireAuthorization(policy=>policy.RequireRole("Admin"));
+app.MapPost("/api/admin/submissions/{id:guid}/review",async(Guid id,HttpContext context,AnkaAccountService accounts,AnkaReview review)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var reviewer=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(reviewer is null||!await accounts.IsCurrentRoleAsync(reviewer,"Admin"))return Results.Forbid();
+    return await accounts.ReviewBookAsync(id.ToString(),reviewer,review.Approve)?Results.Ok(new{ok=true}):Results.NotFound();
+}).RequireAuthorization(policy=>policy.RequireRole("Admin"));
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", app = "Anka", framework = "Blazor Server" }));
 app.MapGet("/api/catalog/status", async () =>
 {
@@ -190,13 +224,13 @@ app.MapGet("/api/books", async () =>
     var books = new List<BookListItem>();
     await using var db = new SqliteConnection(connectionString);
     await db.OpenAsync();
-    await using var cmd = new SqliteCommand("SELECT id,title,author,language,original_script,bytes FROM books ORDER BY created_utc DESC", db);
+    await using var cmd = new SqliteCommand("SELECT id,title,author,language,original_script,bytes FROM books b WHERE NOT EXISTS (SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved') ORDER BY created_utc DESC", db);
     await using var r = await cmd.ExecuteReaderAsync();
     while (await r.ReadAsync())
         books.Add(new BookListItem(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5)));
     return Results.Ok(books);
 });
-app.MapGet("/api/books/{id:guid}/file", async (Guid id) =>
+app.MapGet("/api/books/{id:guid}/file", async (Guid id,HttpContext context) =>
 {
     await using var db = new SqliteConnection(connectionString);
     await db.OpenAsync();
@@ -207,9 +241,13 @@ app.MapGet("/api/books/{id:guid}/file", async (Guid id) =>
     var path = Path.Combine(storage, name);
     return File.Exists(path) ? Results.File(path, "application/epub+zip", enableRangeProcessing: true) : Results.NotFound();
 });
-app.MapPost("/api/books", async (HttpRequest request) =>
+app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts) =>
 {
     if (!SameOrigin(request)) return Results.StatusCode(403);
+    var uploader=request.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(uploader is null || !(await accounts.IsCurrentRoleAsync(uploader,"Publisher")||await accounts.IsCurrentRoleAsync(uploader,"Admin")))return Results.StatusCode(403);
+    var rightsDeclaration=request.Headers["X-Anka-Rights"].ToString().Trim();
+    if(rightsDeclaration.Length<12||rightsDeclaration.Length>2000)return Results.BadRequest(new {error="A publishing-rights declaration is required."});
     if (!request.HasFormContentType) return Results.BadRequest(new { error = "multipart/form-data required" });
     var form = await request.ReadFormAsync();
     var file = form.Files.GetFile("file");
@@ -259,7 +297,8 @@ app.MapPost("/api/books", async (HttpRequest request) =>
         cmd.Parameters.AddWithValue("@file", name);
         cmd.Parameters.AddWithValue("@bytes", file.Length);
         await cmd.ExecuteNonQueryAsync();
-        return Results.Created($"/api/books/{id}/file", new { id, title });
+        if(!await accounts.RecordBookSubmissionAsync(id.ToString(),uploader,rightsDeclaration))throw new InvalidDataException("Could not register rights declaration.");
+        return Results.Created($"/api/books/{id}/file", new { id, title, state="pending" });
     }
     catch (InvalidDataException e) { File.Delete(path); return Results.BadRequest(new { error = e.Message }); }
     catch (System.Xml.XmlException) { File.Delete(path); return Results.BadRequest(new { error = "Malformed EPUB XML." }); }
@@ -268,5 +307,7 @@ app.MapPost("/api/books", async (HttpRequest request) =>
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 app.Run();
 
+public record AnkaRightsRequest(string? Statement);
+public record AnkaReview(bool Approve);
 public record AnkaCredentials(string? Email,string? Password,string? Name);
 public record BookListItem(string Id, string Title, string Author, string Language, string Script, long Bytes);
