@@ -149,6 +149,17 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         string id=reader.GetString(0),name=reader.GetString(1),role=reader.GetString(2),hash=reader.GetString(3);
         return Verify(password,hash)?(id,name,role):null;
     }
+    // Test-only credential lookup. The calling HTTP endpoint must be development AND loopback only.
+    public async Task<(string Id,string Name,string Role)?> FindLocalTestAccountAsync(string email)
+    {
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="SELECT id,display_name,role FROM anka_users WHERE email=@email AND disabled=0";
+        cmd.Parameters.AddWithValue("@email",email.Trim().ToLowerInvariant());
+        await using var r=await cmd.ExecuteReaderAsync();
+        if(!await r.ReadAsync())return null;
+        return(r.GetString(0),r.GetString(1),r.GetString(2));
+    }
     public async Task<bool> MakePublisherAsync(string userId)
     {
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
