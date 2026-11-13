@@ -62,6 +62,19 @@ builder.Services.AddHostedService<AzerbaijaniBookSeedWorker>();
 Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath,"App_Data","keys"));
 var app = builder.Build();
 app.UseExceptionHandler();
+// Baseline browser hardening for catalog, reader and publisher responses.
+// Do not set a global CSP here: Blazor interactive circuits and EPUB rendering
+// require a separately tested policy before enforcing script/style restrictions.
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
+        context.Response.Headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
+        return Task.CompletedTask;
+    });
+    await next();
+});
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
