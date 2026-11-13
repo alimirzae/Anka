@@ -186,3 +186,31 @@ body.dark .reader-chapters-list button.current{background:#24466c}
  .reader-bottom-controls>button{font-size:10px;min-width:70px;padding:7px}
  .reader-chapter-panel{top:100px}
 }
+
+
+/* ANKA Store + Publisher: simple, accessible and consistent with existing design */
+.anka-market,.anka-publisher{max-width:1250px;margin:0 auto}
+.market-intro{padding:24px 2px 20px}
+.market-intro h1{font-size:clamp(23px,3vw,35px);line-height:1.5;margin:5px 0;color:var(--ink)}
+.market-intro p{color:var(--muted);font-size:13px;max-width:720px;margin:5px 0}
+.market-filters{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:18px;background:var(--paper);border:1px solid var(--line);border-radius:15px;margin-bottom:22px}
+.market-filters label{font-size:12px;display:flex;flex-direction:column;gap:5px;font-weight:700;min-width:180px}
+.market-filters .market-search{flex:1;min-width:200px}
+.market-filters input,.market-filters select{padding:9px 12px;border:1px solid var(--line);background:var(--bg);border-radius:9px;color:var(--ink);width:100%;max-width:100%}
+.market-count{font-size:12px;color:var(--muted);padding:9px}
+.market-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:17px}
+.market-book{border:1px solid var(--line);border-radius:15px;overflow:hidden;background:var(--paper);min-width:0;box-shadow:var(--shadow)}
+.market-book-art{min-height:190px;margin:12px;border-radius:10px;background:linear-gradient(145deg,#203862,#4a6790);color:white;display:flex;flex-direction:column;justify-content:space-between;gap:9px;padding:18px;overflow-wrap:anywhere;text-align:center}
+.market-book-art small{font-size:9px;letter-spacing:.13em}.market-book-art strong{font:800 22px Vazirmatn,Georgia,serif;line-height:1.5}.market-book-art span{font-size:11px}
+.market-book-body{padding:0 15px 16px}.market-book-body h2{font-size:15px;line-height:1.7;margin:7px 0 3px;overflow-wrap:anywhere}.market-book-body p{font-size:12px;color:var(--muted);margin:0 0 13px}.market-book-body button{width:100%;font-size:12px;justify-content:center}
+.market-language{color:var(--accent);background:var(--shade);border-radius:20px;padding:3px 9px;font-size:11px}
+.market-note{font-size:11px;margin-top:24px;color:var(--muted)}
+.publisher-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.publisher-steps article{background:var(--paper);border:1px solid var(--line);border-radius:15px;padding:23px}
+.publisher-steps article>span{font:800 21px Georgia,serif;color:var(--accent)}
+.publisher-steps h2{font-size:16px;margin:12px 0 5px}
+.publisher-steps p{font-size:12px;color:var(--muted);margin:0}
+.publisher-status{margin-top:20px;padding:20px;background:var(--paper);border:1px solid var(--line);border-radius:15px}
+.publisher-status strong{font-size:14px}.publisher-status p{font-size:12px;color:var(--muted);margin:7px 0 0}
+@media(max-width:950px){.market-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.market-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.publisher-steps{grid-template-columns:1fr}.market-book-art{min-height:160px;padding:12px}.market-book-art strong{font-size:17px}.market-filters{padding:12px}.market-filters label{min-width:0;flex:1}.market-filters .market-search{flex-basis:100%}}
