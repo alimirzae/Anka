@@ -1,3 +1,5 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @page "/read/{Id:guid}"
 @implements IDisposable
 @implements IAsyncDisposable
@@ -103,6 +105,7 @@
 
 @code {
  [Parameter] public Guid Id {get;set;}
+ [CascadingParameter] public Task<AuthenticationState>? AuthenticationState {get;set;}
  private ReadingDocument? book;
  private CatalogBook? sample;
  private string? error;
@@ -147,7 +150,10 @@
  }
  private async Task LoadBook(){
   error=null;
-  try{book=await Reader.OpenAsync(Id);pageIndex=0;}
+  try{
+   var userId=AuthenticationState is null?null:(await AuthenticationState).User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+   book=await Reader.OpenAsync(Id,authenticatedUserId:userId);pageIndex=0;
+  }
   catch(Exception ex){error=ex is FileNotFoundException?L.T("fileMissing"):ex.Message;book=null;}
  }
  protected override async Task OnAfterRenderAsync(bool firstRender){
