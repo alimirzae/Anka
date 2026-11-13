@@ -118,7 +118,8 @@ jobs:
             foreach ($probe in @(
               @{ Path = '/api/account/test-login'; Expected = 404 },
               @{ Path = '/api/admin/publishers'; Expected = 401 },
-              @{ Path = '/api/admin/submissions'; Expected = 401 }
+              @{ Path = '/api/admin/submissions'; Expected = 401 },
+              @{ Path = '/api/me/shelf'; Expected = 401 }
             )) {
               $code = 0
               try {
