@@ -13,6 +13,18 @@ public sealed class UiText
     private static readonly Dictionary<string, string[]> Messages = new(StringComparer.OrdinalIgnoreCase)
     {
         // Persian, Turkish, Azerbaijani Latin, Azerbaijani Arabic
+        ["accountTitle"] = ["حساب کاربری آنکا", "ANKA hesabı", "ANKA hesabı", "آنکا حسابی"],
+        ["accountHelp"] = ["برای ذخیره کتابخانه و مدیریت مطالعه وارد شوید.", "Kitaplığınızı kaydetmek için giriş yapın.", "Kitabxananızı saxlamaq üçün daxil olun.", "کیتابخانانیزی ساخلاماق اوچون گیریش ائدین."],
+        ["signIn"] = ["ورود", "Giriş", "Daxil ol", "گیریش"],
+        ["register"] = ["ثبت‌نام", "Kayıt ol", "Qeydiyyat", "قئیدیات"],
+        ["signOut"] = ["خروج", "Çıkış", "Çıxış", "چیخیش"],
+        ["fullName"] = ["نام کامل", "Ad soyad", "Ad soyad", "آد سویاد"],
+        ["password"] = ["رمز عبور", "Şifre", "Şifrə", "شیفره"],
+        ["passwordHint"] = ["رمز عبور باید حداقل ۱۲ کاراکتر باشد.", "Şifre en az 12 karakter olmalıdır.", "Şifrə ən azı 12 simvol olmalıdır.", "شیفره ان آزی ۱۲ کاراکتر اولمالیدیر."],
+        ["registrationSuccess"] = ["حساب ساخته شد. اکنون وارد شوید.", "Hesap açıldı; şimdi giriş yapın.", "Hesab yaradıldı; indi daxil olun.", "حساب یاران‌دی؛ ایندی گیریش ائدین."],
+        ["signInSuccess"] = ["ورود موفق", "Giriş başarılı", "Giriş uğurlu", "گیریش اوغورلو"],
+        ["accountError"] = ["عملیات ناموفق بود.", "İşlem başarısız.", "Əməliyyat alınmadı.", "عملیات آلینمادی."],
+        ["accountNav"] = ["حساب من", "Hesabım", "Hesabım", "حسابیم"],
         ["storeTitle"] = ["کتابخانه و فروشگاه آنکا", "ANKA kitaplığı ve mağazası", "ANKA kitabxanası və mağazası", "آنکا کیتابخاناسی و ماغازاسی"],
         ["storeSubtitle"] = ["کتاب‌ها را جستجو کنید و نسخه مناسب را برای مطالعه انتخاب کنید.", "Kitapları bulun ve okumak istediğiniz sürümü seçin.", "Kitabları tapın və oxumaq üçün uyğun variantı seçin.", "کیتابلاری تاپین و اوخوماق اوچون اویغون نسخه‌نی سئچین."],
         ["storeEmptyHint"] = ["کتاب‌های کامل پس از واردسازی در این بخش نمایش داده می‌شوند.", "İçe aktarılan kitaplar burada görünür.", "Daxil edilən kitablar burada görünəcək.", "یوکلنن کیتابلار بورادا گؤرونجک."],
@@ -131,6 +143,18 @@ public sealed class UiText
 
     private static readonly Dictionary<string, string> English = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["accountTitle"] = "Your ANKA account",
+        ["accountHelp"] = "Sign in to keep your personal library.",
+        ["signIn"] = "Sign in",
+        ["register"] = "Register",
+        ["signOut"] = "Sign out",
+        ["fullName"] = "Full name",
+        ["password"] = "Password",
+        ["passwordHint"] = "Use a password of at least 12 characters.",
+        ["registrationSuccess"] = "Account created. You can now sign in.",
+        ["signInSuccess"] = "Signed in.",
+        ["accountError"] = "Could not complete the request.",
+        ["accountNav"] = "My account",
         ["brandSub"] = "Digital Library",
         ["banner"] = "Anka, home of books and culture",
         ["home"] = "Home",
