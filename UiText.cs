@@ -65,6 +65,12 @@ public sealed class UiText
         ["adminSetupSuccess"] = ["حساب مدیر فعال شد؛ خارج شوید و دوباره وارد شوید.", "Yönetici etkin; çıkıp tekrar giriş yapın.", "İdarəçi aktivdir; çıxıb yenidən daxil olun.", "مدیر فعال‌دیر؛ چیخین و یئندن گیریش ائدین."],
         ["adminAlreadyExists"] = ["مدیر سیستم قبلاً فعال شده است.", "Yönetici zaten etkin.", "İdarəçi artıq aktivdir.", "مدیر آرتیق فعال‌دیر."],
         ["adminSetupFailed"] = ["کلید نامعتبر است یا راه‌اندازی امکان‌پذیر نیست.", "Anahtar geçersiz veya kurulum kapalı.", "Açar yanlışdır və ya qurma bağlıdır.", "آچار یانلیش‌دیر یا قورولوش باغلی‌دیر."],
+        ["editionLinkTitle"] = ["اتصال نسخه‌های زبانی", "Dil sürümlerini bağlama", "Dil variantlarını birləşdir", "دیل نسخه‌لرینی باغلاماق"],
+        ["editionLinkHelp"] = ["شناسه نسخه جدید و شناسه اثر اصلی را وارد کنید.", "Yeni sürüm ve ana eser kimliğini girin.", "Yeni variant və əsas əsərin kodunu daxil edin.", "یئنی نسخه و اصلی اثر کدونو یازین."],
+        ["editionBookId"] = ["شناسه نسخه", "Sürüm kimliği", "Variant kodu", "نسخه کدو"],
+        ["editionWorkId"] = ["شناسه اثر اصلی", "Ana eser kimliği", "Əsas əsər kodu", "اصلی اثر کدو"],
+        ["editionLinkAction"] = ["اتصال نسخه", "Sürümü bağla", "Variantı birləşdir", "نسخه‌نی باغلا"],
+        ["editionInvalidId"] = ["شناسه واردشده معتبر نیست.", "Kimlik geçerli değil.", "Kod düzgün deyil.", "کد دوغرو دئییل."],
         ["storeTitle"] = ["کتابخانه و فروشگاه آنکا", "ANKA kitaplığı ve mağazası", "ANKA kitabxanası və mağazası", "آنکا کیتابخاناسی و ماغازاسی"],
         ["storeSubtitle"] = ["کتاب‌ها را جستجو کنید و نسخه مناسب را برای مطالعه انتخاب کنید.", "Kitapları bulun ve okumak istediğiniz sürümü seçin.", "Kitabları tapın və oxumaq üçün uyğun variantı seçin.", "کیتابلاری تاپین و اوخوماق اوچون اویغون نسخه‌نی سئچین."],
         ["storeEmptyHint"] = ["کتاب‌های کامل پس از واردسازی در این بخش نمایش داده می‌شوند.", "İçe aktarılan kitaplar burada görünür.", "Daxil edilən kitablar burada görünəcək.", "یوکلنن کیتابلار بورادا گؤرونجک."],
@@ -183,6 +189,12 @@ public sealed class UiText
 
     private static readonly Dictionary<string, string> English = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["editionLinkTitle"] = "Link language editions",
+        ["editionLinkHelp"] = "Enter the edition ID and the main work ID.",
+        ["editionBookId"] = "Edition ID",
+        ["editionWorkId"] = "Main work ID",
+        ["editionLinkAction"] = "Link edition",
+        ["editionInvalidId"] = "Invalid identifier.",
         ["adminSetupTitle"] = "First administrator setup",
         ["adminSetupHelp"] = "Sign in first; the one-time activation key is stored securely on the server.",
         ["adminSetupKey"] = "One-time setup key",
