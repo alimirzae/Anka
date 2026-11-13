@@ -57,6 +57,20 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
               currency TEXT NOT NULL DEFAULT 'IRR',
               FOREIGN KEY(work_id) REFERENCES anka_works(id)
             );
+            CREATE TABLE IF NOT EXISTS anka_book_access(
+              book_id TEXT PRIMARY KEY,
+              access_mode TEXT NOT NULL DEFAULT 'free'
+                CHECK(access_mode IN ('free','manual')),
+              updated_utc TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS anka_manual_entitlements(
+              user_id TEXT NOT NULL,
+              book_id TEXT NOT NULL,
+              granted_by TEXT NOT NULL,
+              reason TEXT NOT NULL DEFAULT '',
+              granted_utc TEXT NOT NULL,
+              PRIMARY KEY(user_id,book_id)
+            );
             CREATE TABLE IF NOT EXISTS anka_publisher_requests(
               user_id TEXT PRIMARY KEY,
               statement TEXT NOT NULL,
@@ -320,6 +334,69 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
           """;
         cmd.Parameters.AddWithValue("@book",bookId);cmd.Parameters.AddWithValue("@work",targetWorkId);
         return await cmd.ExecuteNonQueryAsync()==1;
+    }
+
+    public async Task<bool> SetBookAccessAsync(string bookId,bool manual)
+    {
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+          INSERT INTO anka_book_access(book_id,access_mode,updated_utc)
+          SELECT id,@mode,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM books
+          WHERE id=@id AND NOT EXISTS(
+            SELECT 1 FROM anka_book_moderation m WHERE m.book_id=books.id AND m.state!='approved')
+          ON CONFLICT(book_id) DO UPDATE SET access_mode=excluded.access_mode,updated_utc=excluded.updated_utc
+          """;
+        cmd.Parameters.AddWithValue("@id",bookId);
+        cmd.Parameters.AddWithValue("@mode",manual?"manual":"free");
+        return await cmd.ExecuteNonQueryAsync()>0;
+    }
+
+    public async Task<bool> GrantBookToEmailAsync(string email,string bookId,string grantedBy,string reason)
+    {
+        email=email.Trim().ToLowerInvariant();
+        reason=reason.Trim();
+        if(email.Length>254||reason.Length>350)return false;
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+          INSERT OR IGNORE INTO anka_manual_entitlements(user_id,book_id,granted_by,reason,granted_utc)
+          SELECT u.id,b.id,@admin,@reason,strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          FROM anka_users u CROSS JOIN books b
+          WHERE u.email=@email AND u.disabled=0 AND b.id=@book
+            AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
+                           WHERE m.book_id=b.id AND m.state!='approved')
+          """;
+        cmd.Parameters.AddWithValue("@email",email);
+        cmd.Parameters.AddWithValue("@book",bookId);
+        cmd.Parameters.AddWithValue("@admin",grantedBy);
+        cmd.Parameters.AddWithValue("@reason",reason);
+        return await cmd.ExecuteNonQueryAsync()>0;
+    }
+
+    public async Task<bool> CanReadAsync(string? userId,string bookId)
+    {
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+          SELECT EXISTS(
+             SELECT 1 FROM books b
+             WHERE b.id=@book
+               AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
+                 WHERE m.book_id=b.id AND m.state!='approved')
+               AND (
+                 NOT EXISTS(SELECT 1 FROM anka_book_access a
+                   WHERE a.book_id=b.id AND a.access_mode='manual')
+                 OR EXISTS(SELECT 1 FROM anka_manual_entitlements e
+                   WHERE e.book_id=b.id AND e.user_id=@user)
+                 OR EXISTS(SELECT 1 FROM anka_users u
+                   WHERE u.id=@user AND u.role='Admin' AND u.disabled=0)
+               )
+          )
+          """;
+        cmd.Parameters.AddWithValue("@book",bookId);
+        cmd.Parameters.AddWithValue("@user",userId??"");
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync())==1;
     }
     public async Task<IReadOnlyList<string>> ShelfAsync(string userId)
     {
