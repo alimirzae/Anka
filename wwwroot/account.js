@@ -30,6 +30,10 @@
     const r=await fetch("/api/admin/publishers",{credentials:"same-origin"});
     return {ok:r.ok,items:r.ok?await r.json():[]};
   },
+  async getMySubmissions(){
+    const r=await fetch("/api/publisher/my-submissions",{credentials:"same-origin"});
+    return {ok:r.ok,items:r.ok?await r.json():[]};
+  },
   async getBookSubmissions(){
     const r=await fetch("/api/admin/submissions",{credentials:"same-origin"});
     return {ok:r.ok,items:r.ok?await r.json():[]};
