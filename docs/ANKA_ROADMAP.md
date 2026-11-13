@@ -27,8 +27,8 @@ Preserve the existing uncluttered ANKA identity (white background, restrained na
 ### P1 — ANKA Store (in progress)
 - [x] Minimal public catalog and book detail prototypes.
 - [x] `/store` searchable public catalog with title/author and script/language filters; **pending:** category, format, price, rights and advanced faceted filters.
-- [ ] Canonical Book/BookEdition, Author, Publisher, Translator, Category and BookLicense model.
-- [ ] One book may have three or more **independent authentic** editions, each with rights, review state, content and preview.
+- [x] Initial additive `anka_works` + `anka_editions` schema with canonical work ID and independent edition language, script, translator, publisher and content state; **pending:** normalized author/translator/publisher entities and formal license proof attachments.
+- [x] Independent edition records with admin association (`/api/admin/editions/{id}/link`) and visible version selector; **pending:** proofreading workflow, aligned previews and editor-reviewed authentic translation content.
 - [x] Basic dynamic `/store/book/{id}` detail page with edition language, author, format, size, read and save-to-shelf; **pending:** real cover, publisher, category, rights, chapter list, sample, editions and review state.
 - [ ] Pricing, offers and checkout backed by trusted payment processor with server-verified paid entitlements; don't simulate paid purchases.
 - [ ] Ratings/reviews with moderation, recommendations, wishlists and search facets.
@@ -44,11 +44,11 @@ Preserve the existing uncluttered ANKA identity (white background, restrained na
 
 ### P3 — ANKA Publisher (not complete)
 - [x] Prototype upload page exists; currently **public and unsafe** — restrict before public use.
-- [ ] Publisher organization onboarding/approval, authenticated dashboard, book submission workflow.
+- [x] Account publisher application, administrator approval and secure publisher submission with own status dashboard; **pending:** publisher organizations, multiple staff and organization-scoped approvals.
 - [ ] Upload cover, EPUB/PDF/audio, metadata, category, publication rights, edition script/language, pricing.
-- [ ] Draft/review/approve/publish/reject/withdraw lifecycle and audit log.
+- [x] Pending/approved/rejected transitions for publisher and book submissions, preserving rights statements and reviewer; **pending:** draft editing, withdraw/unpublish, full action audit history and publisher notifications.
 - [ ] Royalty reports, publisher sales and settlement, content versioning.
-- [ ] Copyright and license verification before public distribution.
+- [x] Rights declaration required and uploaded books remain hidden before manual admin approval; **pending:** actual evidence attachments and legal verification process.
 
 ### P4 — My Library, audio and subscriptions (not complete)
 - [x] First per-user saved bookshelf (`/my-library`) backed by SQLite and authenticated API; **pending:** purchased/free entitlements, collections, favorites, reading status and cross-device progress.
@@ -76,3 +76,17 @@ Preserve the existing uncluttered ANKA identity (white background, restrained na
 - DataProtection keys persisted in `App_Data/keys`; protect the directory, back it up and set secure IIS file ACLs.
 - **No live paid checkout or payment processor is configured.** Never mark phase-two commerce complete without server-verified payments.
 - Next priorities: publisher approval workflow and pending-only uploads, authorized content delivery, catalog metadata/edition relationships, database tests, email/OTP verification, payment integration (after providing processor).
+
+## 2026-11-13 additional phases 1–3 implementation
+- Admin role bootstraps once using a 32-byte random key stored outside public web root in `App_Data/admin-setup-key.txt`, optionally overridden by `ANKA_ADMIN_SETUP_KEY`. No first-user auto-admin race condition.
+- Admin management page `/admin`: approve/reject publisher registration requests and submitted books. Publisher `/publisher`: request approval and see own submission states.
+- Publisher upload `/upload` requires authenticated current Publisher/Admin role, proof-of-rights statement, title/author, independent language and script, category, synopsis, translator and publisher metadata.
+- Public catalog, book details, file API and server-side reader exclude pending or rejected publisher submissions; book insertion and pending moderation record are one SQLite transaction.
+- `anka_works` and `anka_editions` are additive tables preserving existing book IDs, SQLite data and files. Admin can group language editions of the same work; machine transliterations remain labeled unreviewed.
+- Store supports title/author, language and category filters; product detail lists independent editions, synopsis, translator and publisher.
+- Manual-access book mode and administrator-granted reading entitlements allow authorized access **without** any payment processor; no actual bank charges or fake wallet transactions. Read/file/shelf API permissions are checked by server.
+- The `1234` test PIN is **only** usable in ASP.NET Core Development over loopback; it is disabled on published IIS Production. Normal sign-in uses strong passwords, not email/SMS OTP.
+- Automated GitHub Actions smoke tests now verify Production startup, health, public catalog, anonymous upload rejection, admin endpoint protection and absence of the test PIN route.
+- DataProtection keys and the SQLite App_Data directory must be backed up and ACL-protected. App_Data is excluded from publish artifacts.
+- See `docs/ANKA_ADMIN_SETUP.md` for one-time manager activation.
+- **Phase 1–3 remain partially incomplete**, notably email/phone verification/password reset, comprehensive tests and edit/revoke roles, formal author/publisher entities and licensed translations, true viewport-reflow pagination and PDF/audio support, full submission history/withdrawal, verified financial checkout/credit ledger, advanced search and reviews. Do not claim the product finished until those are implemented and browser-tested.
