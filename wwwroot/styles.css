@@ -214,3 +214,12 @@ body.dark .reader-chapters-list button.current{background:#24466c}
 .publisher-status strong{font-size:14px}.publisher-status p{font-size:12px;color:var(--muted);margin:7px 0 0}
 @media(max-width:950px){.market-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.market-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.publisher-steps{grid-template-columns:1fr}.market-book-art{min-height:160px;padding:12px}.market-book-art strong{font-size:17px}.market-filters{padding:12px}.market-filters label{min-width:0;flex:1}.market-filters .market-search{flex-basis:100%}}
+
+
+/* Lightweight secure account access */
+.anka-account{max-width:620px;margin:0 auto 45px}
+.account-panel{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:13px}
+.account-panel label{font-size:12px;display:flex;flex-direction:column;gap:6px;font-weight:700}
+.account-panel input{padding:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;min-height:44px}
+.account-mode{display:flex;gap:8px}.account-mode button{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:10px;border-radius:10px}.account-mode button.active{background:var(--accent);color:white;border-color:var(--accent)}
+.account-panel>.btn{justify-content:center}.account-note,.account-message{font-size:12px;color:var(--muted)}
