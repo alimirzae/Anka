@@ -37,6 +37,26 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
               PRIMARY KEY(user_id,book_id),
               FOREIGN KEY(user_id) REFERENCES anka_users(id)
             );
+            CREATE TABLE IF NOT EXISTS anka_works(
+              id TEXT PRIMARY KEY,
+              title TEXT NOT NULL,
+              author TEXT NOT NULL,
+              description TEXT NOT NULL DEFAULT '',
+              category TEXT NOT NULL DEFAULT 'General',
+              created_utc TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS anka_editions(
+              book_id TEXT PRIMARY KEY,
+              work_id TEXT NOT NULL,
+              language TEXT NOT NULL,
+              script TEXT NOT NULL,
+              translator TEXT NOT NULL DEFAULT '',
+              content_status TEXT NOT NULL DEFAULT 'complete',
+              publisher_name TEXT NOT NULL DEFAULT '',
+              price_minor INTEGER NOT NULL DEFAULT 0,
+              currency TEXT NOT NULL DEFAULT 'IRR',
+              FOREIGN KEY(work_id) REFERENCES anka_works(id)
+            );
             CREATE TABLE IF NOT EXISTS anka_publisher_requests(
               user_id TEXT PRIMARY KEY,
               statement TEXT NOT NULL,
@@ -65,6 +85,17 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
               FOREIGN KEY(user_id) REFERENCES anka_users(id)
             );
             """;
+        await cmd.ExecuteNonQueryAsync(ct);
+        // Additive migration: preserve the existing books table and every stored EPUB.
+        cmd.CommandText="""
+          INSERT OR IGNORE INTO anka_works(id,title,author,created_utc)
+            SELECT id,title,author,created_utc FROM books;
+          INSERT OR IGNORE INTO anka_editions(book_id,work_id,language,script,content_status)
+            SELECT id,id,language,original_script,
+              CASE WHEN title LIKE '%آوانویسی ماشینی%' THEN 'unreviewed'
+                ELSE 'complete' END
+            FROM books;
+          """;
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
@@ -224,6 +255,38 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         cmd.Parameters.AddWithValue("@id",userId);
         return await cmd.ExecuteNonQueryAsync()==1;
     }
+
+    public async Task<IReadOnlyList<AnkaEditionInfo>> OtherEditionsAsync(string bookId)
+    {
+        var editions=new List<AnkaEditionInfo>();
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+          SELECT b.id,b.title,e.language,e.content_status,e.translator,e.publisher_name
+          FROM anka_editions current
+          JOIN anka_editions e ON e.work_id=current.work_id
+          JOIN books b ON b.id=e.book_id
+          WHERE current.book_id=@id AND
+            NOT EXISTS(SELECT 1 FROM anka_book_moderation m
+              WHERE m.book_id=b.id AND m.state!='approved')
+          ORDER BY CASE e.language WHEN 'az-Arab' THEN 0 WHEN 'tr' THEN 1 WHEN 'az-Latn' THEN 2 ELSE 3 END
+          """;
+        cmd.Parameters.AddWithValue("@id",bookId);
+        await using var r=await cmd.ExecuteReaderAsync();
+        while(await r.ReadAsync())editions.Add(new(r.GetString(0),r.GetString(1),r.GetString(2),r.GetString(3),r.GetString(4),r.GetString(5)));
+        return editions;
+    }
+    public async Task<bool> LinkEditionAsync(string bookId,string targetWorkId)
+    {
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+          UPDATE anka_editions SET work_id=@work
+          WHERE book_id=@book AND EXISTS(SELECT 1 FROM anka_works WHERE id=@work)
+          """;
+        cmd.Parameters.AddWithValue("@book",bookId);cmd.Parameters.AddWithValue("@work",targetWorkId);
+        return await cmd.ExecuteNonQueryAsync()==1;
+    }
     public async Task<IReadOnlyList<string>> ShelfAsync(string userId)
     {
         var result=new List<string>();
@@ -247,3 +310,5 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
 
 public sealed record AnkaPublisherRequest(string UserId,string Name,string Email,string Statement,string State);
 public sealed record AnkaSubmission(string BookId,string Title,string Rights,string State);
+
+public sealed record AnkaEditionInfo(string BookId,string Title,string Language,string ContentStatus,string Translator,string Publisher);
