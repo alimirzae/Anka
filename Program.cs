@@ -285,7 +285,15 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         var title = value("title", meta("title"));
         var author = value("author", meta("creator"));
         var language = value("language", meta("language"));
+        var category = value("category","General");
+        var description = value("description","");
+        var translator = value("translator","");
+        var publisherName = value("publisherName","");
         if (string.IsNullOrWhiteSpace(title)) title = Path.GetFileNameWithoutExtension(file.FileName);
+        if (!new[]{"General","Literature","Poetry","History","Children","Science"}.Contains(category))
+            throw new InvalidDataException("Invalid book category.");
+        if (description.Length>2000||translator.Length>150||publisherName.Length>150)
+            throw new InvalidDataException("Metadata too long.");
         if (title.Length > 500 || author.Length > 300 || language.Length > 32)
             throw new InvalidDataException("Metadata too long.");
         await using var db = new SqliteConnection(connectionString);
@@ -311,19 +319,23 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         rightsCmd.Parameters.AddWithValue("@rights",rightsDeclaration);
         await rightsCmd.ExecuteNonQueryAsync();
         await using var workCmd = new SqliteCommand("""
-          INSERT INTO anka_works(id,title,author,created_utc)
-          VALUES(@id,@title,@author,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+          INSERT INTO anka_works(id,title,author,description,category,created_utc)
+          VALUES(@id,@title,@author,@description,@category,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
         """,db,transaction);
         workCmd.Parameters.AddWithValue("@id",id.ToString());
         workCmd.Parameters.AddWithValue("@title",title);
         workCmd.Parameters.AddWithValue("@author",author);
+        workCmd.Parameters.AddWithValue("@description",description);
+        workCmd.Parameters.AddWithValue("@category",category);
         await workCmd.ExecuteNonQueryAsync();
         await using var editionCmd = new SqliteCommand("""
-          INSERT INTO anka_editions(book_id,work_id,language,script,content_status)
-          VALUES(@id,@id,@language,@script,'unreviewed')
+          INSERT INTO anka_editions(book_id,work_id,language,script,content_status,translator,publisher_name)
+          VALUES(@id,@id,@language,@script,'unreviewed',@translator,@publisher)
         """,db,transaction);
         editionCmd.Parameters.AddWithValue("@id",id.ToString());
         editionCmd.Parameters.AddWithValue("@language",language);
+        editionCmd.Parameters.AddWithValue("@translator",translator);
+        editionCmd.Parameters.AddWithValue("@publisher",publisherName);
         editionCmd.Parameters.AddWithValue("@script",language is "az-Arab" or "fa" ? "Arabic" : "Latin");
         await editionCmd.ExecuteNonQueryAsync();
         await transaction.CommitAsync();
