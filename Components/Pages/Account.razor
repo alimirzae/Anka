@@ -1,0 +1,63 @@
+@page "/account"
+@implements IDisposable
+@inject UiText L
+@inject IJSRuntime Js
+
+<section class="anka-account">
+ <div class="market-intro"><span class="eyebrow">ANKA ACCOUNT</span><h1>@L.T("accountTitle")</h1><p>@L.T("accountHelp")</p></div>
+ @if(isLoggedIn){
+  <div class="account-panel">
+   <h2>@displayName</h2>
+   <p>@role</p>
+   <button class="btn btn-dark" @onclick="Logout">@L.T("signOut")</button>
+  </div>
+ }else{
+  <div class="account-panel">
+   <div class="account-mode">
+    <button class="@(register?"":"active")" @onclick="()=>register=false">@L.T("signIn")</button>
+    <button class="@(register?"active":"")" @onclick="()=>register=true">@L.T("register")</button>
+   </div>
+   @if(register){<label>@L.T("fullName")<input @bind="name" maxlength="100" autocomplete="name" /></label>}
+   <label>Email<input @bind="email" inputmode="email" type="email" autocomplete="email" /></label>
+   <label>@L.T("password")<input @bind="password" type="password" autocomplete="@(register?"new-password":"current-password")" /></label>
+   <button class="btn btn-dark" @onclick="Submit" disabled="@busy">@(register?L.T("register"):L.T("signIn"))</button>
+   <p class="account-note">@L.T("passwordHint")</p>
+  </div>
+ }
+ @if(!string.IsNullOrWhiteSpace(status)){<p role="status" class="account-message">@status</p>}
+</section>
+
+@code {
+ private bool register,isLoggedIn,busy;
+ private string name="",email="",password="",role="",displayName="",status="";
+ protected override void OnInitialized()=>L.Changed+=Refresh;
+ private void Refresh()=>_=InvokeAsync(StateHasChanged);
+ protected override async Task OnAfterRenderAsync(bool firstRender){
+  if(!firstRender)return;
+  try{
+   var state=await Js.InvokeAsync<AnkaAccountState>("ankaAccount.me");
+   isLoggedIn=state.Authenticated;displayName=state.Name??"";role=state.Role??"";
+   StateHasChanged();
+  }catch(JSException){}
+ }
+ private async Task Submit(){
+  busy=true;status="";
+  try{
+   var response=await Js.InvokeAsync<AnkaAccountResult>(register?"ankaAccount.register":"ankaAccount.login",email,password,name);
+   if(response.Ok){
+    if(register){register=false;status=L.T("registrationSuccess");password="";}
+    else{isLoggedIn=true;displayName=email;role=response.Role??"Reader";status=L.T("signInSuccess");password="";}
+   }else status=response.Error??L.T("accountError");
+  }catch(JSException){status=L.T("accountError");}
+  finally{busy=false;}
+ }
+ private async Task Logout(){
+  try{
+   var result=await Js.InvokeAsync<AnkaAccountResult>("ankaAccount.logout");
+   if(result.Ok){isLoggedIn=false;displayName="";role="";status="";}
+  }catch(JSException){status=L.T("accountError");}
+ }
+ public void Dispose()=>L.Changed-=Refresh;
+ private sealed class AnkaAccountState{public bool Authenticated{get;set;}public string? Name{get;set;}public string? Role{get;set;}}
+ private sealed class AnkaAccountResult{public bool Ok{get;set;}public string? Role{get;set;}public string? Error{get;set;}}
+}
