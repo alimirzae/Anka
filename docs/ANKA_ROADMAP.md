@@ -18,18 +18,18 @@ Preserve the existing uncluttered ANKA identity (white background, restrained na
 ## Work stages and acceptance criteria
 
 ### P0 — Safety, persistence, product architecture (not complete)
-- [ ] Authentication: passwordless OTP or secure identity, rate limits and account management.
-- [ ] Roles: reader, publisher, reviewer/editor, administrator. Scope every API query to authorized user/organization.
-- [ ] Replace unauthenticated public `POST /api/books` with protected publisher-only upload workflow; validate EPUB ZIP safety, metadata, licenses, and ownership.
+- [x] Initial email/password accounts with PBKDF2 hashes, HTTP-only secure cookie login and IP rate limit; **pending:** email verification, password reset, OTP, account administration and automated security tests.
+- [x] Initial Reader/Publisher role claims and server-side upload restriction; **pending:** administrative role workflow, editor roles, role revocation validation and full multi-tenant authorization audit.
+- [x] Remove anonymous access to `POST /api/books` (Publisher/Admin role required, same-origin guard); **pending:** license declaration, pending-content review workflow and ownership checks across all reader/file endpoints.
 - [ ] Automated tests for auth, authorization, persistent data, uploads, and migration; working backup/restore.
 - [ ] Database migrations preserve existing SQLite and EPUB assets. Design MySQL migration, do not destructively switch in production.
 
 ### P1 — ANKA Store (in progress)
 - [x] Minimal public catalog and book detail prototypes.
-- [ ] Dedicated coherent `/store` catalog with filters for title, author, and edition language, category, format, availability (free/paid).
+- [x] `/store` searchable public catalog with title/author and script/language filters; **pending:** category, format, price, rights and advanced faceted filters.
 - [ ] Canonical Book/BookEdition, Author, Publisher, Translator, Category and BookLicense model.
 - [ ] One book may have three or more **independent authentic** editions, each with rights, review state, content and preview.
-- [ ] Detailed product page (cover, edition options, review state, chapter list, sample, attributes, publisher, rights).
+- [x] Basic dynamic `/store/book/{id}` detail page with edition language, author, format, size, read and save-to-shelf; **pending:** real cover, publisher, category, rights, chapter list, sample, editions and review state.
 - [ ] Pricing, offers and checkout backed by trusted payment processor with server-verified paid entitlements; don't simulate paid purchases.
 - [ ] Ratings/reviews with moderation, recommendations, wishlists and search facets.
 
@@ -51,7 +51,7 @@ Preserve the existing uncluttered ANKA identity (white background, restrained na
 - [ ] Copyright and license verification before public distribution.
 
 ### P4 — My Library, audio and subscriptions (not complete)
-- [ ] Per-user shelf: owned, free, currently reading, finished, favorite, collections, synchronize devices.
+- [x] First per-user saved bookshelf (`/my-library`) backed by SQLite and authenticated API; **pending:** purchased/free entitlements, collections, favorites, reading status and cross-device progress.
 - [ ] Authorized audiobook/podcast streaming, resume position, offline where legally permitted.
 - [ ] Subscription plan, billing, entitlement expiration and cancellation/refunds.
 
@@ -65,3 +65,14 @@ Preserve the existing uncluttered ANKA identity (white background, restrained na
 
 ## Implementation status history
 - 2026-11-13: feature audit shows minimal book catalog, EPUB, multilingual UI and immersive reader prototype. Store commerce, auth, personal data boundaries, publisher workflow, payments, synchronized data, true reflow pagination and full authorized translations are pending.
+
+## 2026-11-13 phase-one and phase-two implementation checkpoint
+- Added `AnkaAccountService.cs`: SQLite account tables, hashed passwords, identity roles, shelf and publisher submission skeleton table.
+- Added `/account`: minimal email/password register, login, logout (no real OTP or verified-email recovery yet).
+- Added `/my-library`: saved book cards per logged-in user.
+- Added `/store/book/{id}`: book detail metadata, reading and add-to-library.
+- Public upload `POST /api/books` no longer accepts anonymous users. Existing public book downloads remain accessible. **Do not treat uploads as commercial content:** entitlement, licensing and editorial approval are not complete.
+- Publisher role assignment requires a configured 32+ character `ANKA_PUBLISHER_SETUP_KEY` secret and an authenticated account; never commit that secret.
+- DataProtection keys persisted in `App_Data/keys`; protect the directory, back it up and set secure IIS file ACLs.
+- **No live paid checkout or payment processor is configured.** Never mark phase-two commerce complete without server-verified payments.
+- Next priorities: publisher approval workflow and pending-only uploads, authorized content delivery, catalog metadata/edition relationships, database tests, email/OTP verification, payment integration (after providing processor).
