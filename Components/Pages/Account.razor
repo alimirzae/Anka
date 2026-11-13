@@ -58,6 +58,6 @@
   }catch(JSException){status=L.T("accountError");}
  }
  public void Dispose()=>L.Changed-=Refresh;
- private sealed class AnkaAccountState{public bool Authenticated{get;set;}public string? Name{get;set;}public string? Role{get;set;}}
- private sealed class AnkaAccountResult{public bool Ok{get;set;}public string? Role{get;set;}public string? Error{get;set;}}
+ private sealed class AnkaAccountState{public AnkaAccountState(){}public bool Authenticated{get;set;}public string? Name{get;set;}public string? Role{get;set;}}
+ private sealed class AnkaAccountResult{public AnkaAccountResult(){}public bool Ok{get;set;}public string? Role{get;set;}public string? Error{get;set;}}
 }
