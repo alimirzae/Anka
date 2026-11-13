@@ -45,6 +45,7 @@
   },
   reviewPublisher:(id,approve)=>post("/api/admin/publishers/"+encodeURIComponent(id)+"/review",{approve}),
   reviewBook:(id,approve)=>post("/api/admin/submissions/"+encodeURIComponent(id)+"/review",{approve}),
+  linkEdition:(id,workId)=>post("/api/admin/editions/"+encodeURIComponent(id)+"/link",{workId}),
   async me(){const r=await fetch("/api/account/me",{credentials:"same-origin"});return r.ok?await r.json():{authenticated:false};}
  };
 })();
