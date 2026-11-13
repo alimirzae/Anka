@@ -24,6 +24,17 @@
     <option value="en">English</option>
    </select>
   </label>
+  <label>@L.T("bookCategory")
+   <select @bind="category" aria-label="@L.T("bookCategory")">
+    <option value="">@L.T("all")</option>
+    <option value="Literature">@L.T("categoryLiterature")</option>
+    <option value="Poetry">@L.T("categoryPoetry")</option>
+    <option value="History">@L.T("categoryHistory")</option>
+    <option value="Children">@L.T("categoryChildren")</option>
+    <option value="Science">@L.T("categoryScience")</option>
+    <option value="General">@L.T("categoryGeneral")</option>
+   </select>
+  </label>
   <span class="market-count">@Visible.Count @L.T("booksUnit")</span>
  </div>
  @if(error is not null){<p role="alert" class="notice">@error</p>}
@@ -49,10 +60,11 @@
 
 @code {
  private List<BookListItem> books=new();
- private string search="",language="";
+ private string search="",language="",category="";
  private string? error;
  private List<BookListItem> Visible => books.Where(b=>
     (string.IsNullOrWhiteSpace(language)||b.Language==language||(language=="az-Latn"&&b.Language=="az")) &&
+    (string.IsNullOrEmpty(category)||b.Category==category) &&
     (string.IsNullOrWhiteSpace(search)||(b.Title+" "+b.Author).Contains(search,StringComparison.OrdinalIgnoreCase))
   ).ToList();
  protected override void OnInitialized()=>L.Changed+=Refresh;
@@ -64,9 +76,16 @@
     DataSource=file,Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite}.ToString());
    await db.OpenAsync();
    await using var cmd=db.CreateCommand();
-   cmd.CommandText="SELECT id,title,author,language,original_script,bytes FROM books b WHERE NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved') ORDER BY created_utc DESC";
+   cmd.CommandText="""
+     SELECT b.id,b.title,b.author,b.language,b.original_script,b.bytes,
+     COALESCE(w.category,'General')
+     FROM books b LEFT JOIN anka_editions e ON e.book_id=b.id
+     LEFT JOIN anka_works w ON w.id=e.work_id
+     WHERE NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')
+     ORDER BY b.created_utc DESC
+     """;
    await using var cursor=await cmd.ExecuteReaderAsync();
-   while(await cursor.ReadAsync())books.Add(new BookListItem(cursor.GetString(0),cursor.GetString(1),cursor.GetString(2),cursor.GetString(3),cursor.GetString(4),cursor.GetInt64(5)));
+   while(await cursor.ReadAsync())books.Add(new BookListItem(cursor.GetString(0),cursor.GetString(1),cursor.GetString(2),cursor.GetString(3),cursor.GetString(4),cursor.GetInt64(5),cursor.GetString(6)));
   }catch(Exception){error=L.T("readerError");}
  }
  private void Open(string id)=>Navigation.NavigateTo("/store/book/"+id);
