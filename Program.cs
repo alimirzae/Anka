@@ -174,6 +174,7 @@ app.MapPost("/api/me/shelf/{bookId:guid}",async (Guid bookId,HttpContext context
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
     var id=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if(id is null)return Results.Unauthorized();
+    if(!await accounts.CanReadAsync(id,bookId.ToString()))return Results.StatusCode(403);
     await accounts.AddToShelfAsync(id,bookId.ToString());
     return Results.Ok(new{ok=true});
 }).RequireAuthorization();
@@ -231,6 +232,19 @@ app.MapPost("/api/admin/editions/{id:guid}/link",async(Guid id,HttpContext conte
     if(!Guid.TryParse(request.WorkId,out var target))return Results.BadRequest();
     return await accounts.LinkEditionAsync(id.ToString(),target.ToString())?Results.Ok(new{ok=true}):Results.NotFound();
 }).RequireAuthorization(policy=>policy.RequireRole("Admin"));
+app.MapPost("/api/admin/books/{id:guid}/access",async(Guid id,HttpContext context,AnkaAccountService accounts,AnkaAccessRequest request)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var admin=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(admin is null||!await accounts.IsCurrentRoleAsync(admin,"Admin"))return Results.Forbid();
+    return await accounts.SetBookAccessAsync(id.ToString(),request.Manual)?Results.Ok(new{ok=true}):Results.NotFound();
+}).RequireAuthorization(policy=>policy.RequireRole("Admin"));
+app.MapPost("/api/admin/books/{id:guid}/grant",async(Guid id,HttpContext context,AnkaAccountService accounts,AnkaGrantRequest request)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var admin=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(admin is null||!await accounts.IsCurrentRoleAsync(admin,"Admin"))return Results.Forbid();
+    return await accounts.GrantBookToEmailAsync(request.Email??"",id.ToString(),admin,request.Reason??"")?
+        Results.Ok(new{ok=true}):Results.NotFound();
+}).RequireAuthorization(policy=>policy.RequireRole("Admin"));
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", app = "Anka", framework = "Blazor Server" }));
 app.MapGet("/api/catalog/status", async () =>
 {
@@ -276,8 +290,9 @@ app.MapGet("/api/books", async () =>
         books.Add(new BookListItem(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5),r.GetString(6)));
     return Results.Ok(books);
 });
-app.MapGet("/api/books/{id:guid}/file", async (Guid id,HttpContext context) =>
+app.MapGet("/api/books/{id:guid}/file", async (Guid id,HttpContext context,AnkaAccountService accounts) =>
 {
+    if(!await accounts.CanReadAsync(context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value,id.ToString()))return Results.StatusCode(403);
     await using var db = new SqliteConnection(connectionString);
     await db.OpenAsync();
     await using var cmd = new SqliteCommand("SELECT filename FROM books WHERE id=@id", db);
@@ -394,5 +409,7 @@ public record AnkaTestLogin(string? Email,string? Pin);
 public record AnkaRightsRequest(string? Statement);
 public record AnkaReview(bool Approve);
 public record AnkaEditionLink(string? WorkId);
+public record AnkaAccessRequest(bool Manual);
+public record AnkaGrantRequest(string? Email,string? Reason);
 public record AnkaCredentials(string? Email,string? Password,string? Name);
 public record BookListItem(string Id, string Title, string Author, string Language, string Script, long Bytes, string Category="General");
