@@ -140,7 +140,8 @@ app.MapPost("/api/account/login",async (HttpContext context,AnkaAccountService a
     return Results.Ok(new{ok=true,role=account.Value.Role});
 }).RequireRateLimiting("account");
 
-if(app.Environment.IsDevelopment())
+if(app.Environment.IsDevelopment() &&
+   string.Equals(Environment.GetEnvironmentVariable("ANKA_ENABLE_LOCAL_TEST_LOGIN"), "true", StringComparison.OrdinalIgnoreCase))
 {
     app.MapPost("/api/account/test-login",async(HttpContext context,AnkaAccountService accounts,AnkaTestLogin input)=>{
         // Deliberately unavailable in Production; development loopback only.
