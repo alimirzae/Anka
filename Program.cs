@@ -99,6 +99,17 @@ await using (var db = new SqliteConnection(connectionString))
 }
 
 await app.Services.GetRequiredService<AnkaAccountService>().EnsureCreatedAsync();
+// One-time first-admin secret is generated on the IIS server, NEVER sent to visitors.
+// Operators can read this file locally via PowerShell, then remove it after activation.
+var firstAdminSetupFile=Path.Combine(dataDirectory,"admin-setup-key.txt");
+if(await app.Services.GetRequiredService<AnkaAccountService>().HasActiveAdminAsync())
+{
+    if(File.Exists(firstAdminSetupFile))File.Delete(firstAdminSetupFile);
+}
+else if(!File.Exists(firstAdminSetupFile))
+{
+    await File.WriteAllTextAsync(firstAdminSetupFile,Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
+}
 
 static bool SameOrigin(HttpRequest request)
 {
@@ -169,14 +180,20 @@ app.MapPost("/api/me/shelf/{bookId:guid}",async (Guid bookId,HttpContext context
 
 app.MapPost("/api/admin/bootstrap",async(HttpContext context,AnkaAccountService accounts)=>{
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    if(await accounts.HasActiveAdminAsync())return Results.StatusCode(410);
     var secret=Environment.GetEnvironmentVariable("ANKA_ADMIN_SETUP_KEY");
+    if(string.IsNullOrWhiteSpace(secret)&&File.Exists(firstAdminSetupFile))
+        secret=await File.ReadAllTextAsync(firstAdminSetupFile);
+    secret=secret?.Trim();
     if(string.IsNullOrWhiteSpace(secret)||secret.Length<32)return Results.StatusCode(503);
     var provided=context.Request.Headers["X-Anka-Setup-Key"].ToString();
     if(secret.Length!=provided.Length||!CryptographicOperations.FixedTimeEquals(
         Encoding.UTF8.GetBytes(secret),Encoding.UTF8.GetBytes(provided)))return Results.StatusCode(403);
     var userId=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if(userId is null)return Results.Unauthorized();
-    return await accounts.BootstrapAdminAsync(userId)?Results.Ok(new{ok=true}):Results.BadRequest();
+    var promoted=await accounts.BootstrapAdminAsync(userId);
+    if(promoted && File.Exists(firstAdminSetupFile))File.Delete(firstAdminSetupFile);
+    return promoted?Results.Ok(new{ok=true}):Results.BadRequest();
 }).RequireAuthorization().RequireRateLimiting("account");
 app.MapPost("/api/publisher/request",async(HttpContext context,AnkaAccountService accounts,AnkaRightsRequest request)=>{
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
