@@ -4,6 +4,7 @@
 @inject IWebHostEnvironment HostEnvironment
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
+@inject AnkaAccountService Accounts
 
 <div class="market-detail">
  <a href="/store" class="reader-return">← @L.T("storeNav")</a>
@@ -25,6 +26,18 @@
      <dt>@L.T("file")</dt><dd>EPUB</dd>
      <dt>@L.T("bookSize")</dt><dd>@(Math.Round(book.Bytes/1024.0)) KB</dd>
     </dl>
+    @if(!string.IsNullOrWhiteSpace(description)){<p dir="auto">@description</p>}
+    @if(!string.IsNullOrWhiteSpace(translator)){<p>@L.T("bookTranslator"): @translator</p>}
+    @if(!string.IsNullOrWhiteSpace(publisherName)){<p>@L.T("bookPublisher"): @publisherName</p>}
+    <div class="market-editions">
+     <strong>@L.T("editionOptions")</strong>
+     @foreach(var edition in editions){
+      <a href="@("/store/book/"+edition.BookId)" class="@(edition.BookId==book.Id?"current":"")">
+       @LanguageName(edition.Language)
+       <small>@edition.ContentStatus</small>
+      </a>
+     }
+    </div>
     <p class="market-note">@L.T("storeRightsNotice")</p>
     <div class="market-detail-actions">
      <button class="btn btn-dark" @onclick="ReadBook">@L.T("startReading")</button>
@@ -38,6 +51,8 @@
 @code {
  [Parameter] public Guid Id {get;set;}
  private BookListItem? book;
+ private IReadOnlyList<AnkaEditionInfo> editions=Array.Empty<AnkaEditionInfo>();
+ private string description="",translator="",publisherName="";
  private string? status;
  protected override void OnInitialized()=>L.Changed+=Refresh;
  private void Refresh()=>_=InvokeAsync(StateHasChanged);
@@ -48,11 +63,23 @@
   try{
    await db.OpenAsync();
    await using var cmd=db.CreateCommand();
-   cmd.CommandText="SELECT id,title,author,language,original_script,bytes FROM books b WHERE id=@id AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')";
+   cmd.CommandText="""
+   SELECT b.id,b.title,b.author,b.language,b.original_script,b.bytes,
+     COALESCE(w.category,'General'),COALESCE(w.description,''),
+     COALESCE(e.translator,''),COALESCE(e.publisher_name,'')
+     FROM books b LEFT JOIN anka_editions e ON e.book_id=b.id
+     LEFT JOIN anka_works w ON w.id=e.work_id
+     WHERE b.id=@id AND NOT EXISTS(
+       SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')
+   """;
    cmd.Parameters.AddWithValue("@id",Id.ToString());
    await using var r=await cmd.ExecuteReaderAsync();
-   if(await r.ReadAsync())book=new BookListItem(r.GetString(0),r.GetString(1),r.GetString(2),r.GetString(3),r.GetString(4),r.GetInt64(5));
+   if(await r.ReadAsync()){
+    book=new BookListItem(r.GetString(0),r.GetString(1),r.GetString(2),r.GetString(3),r.GetString(4),r.GetInt64(5),r.GetString(6));
+    description=r.GetString(7);translator=r.GetString(8);publisherName=r.GetString(9);
+   }
   }catch(Microsoft.Data.Sqlite.SqliteException){book=null;}
+  editions=book is null?Array.Empty<AnkaEditionInfo>():await Accounts.OtherEditionsAsync(Id.ToString());
  }
  private static string LanguageName(string lang)=>lang switch{
   "az-Arab"=>"تورکجه","az-Latn" or "az"=>"Az.Turkce","tr"=>"Türkçe","fa"=>"فارسی","en"=>"English",_=>lang};
