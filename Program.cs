@@ -288,8 +288,13 @@ app.MapGet("/api/catalog/status", async () =>
     }).ToList();
     return Results.Ok(new { total=items.Count, ready=items.Count(x=>x.imported), books=items });
 });
-app.MapGet("/api/books/{id:guid}/reading-status", async (Guid id, EpubReadingService reader) =>
+app.MapGet("/api/books/{id:guid}/reading-status", async (Guid id, HttpContext context, AnkaAccountService accounts, EpubReadingService reader) =>
 {
+    // Reader diagnostics must enforce the same entitlement as EPUB delivery.
+    // Otherwise private/pending titles and extracted chapter metadata can leak.
+    if (!await accounts.CanReadAsync(context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, id.ToString()))
+        return Results.StatusCode(403);
+    context.Response.Headers["Cache-Control"] = "no-store";
     try
     {
         var book=await reader.OpenAsync(id);
