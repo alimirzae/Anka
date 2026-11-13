@@ -16,9 +16,9 @@ public sealed record ReadingDocument(string Title, string Author, string Languag
 /// </summary>
 public sealed class EpubReadingService(IWebHostEnvironment environment, ILogger<EpubReadingService> log, AnkaAccountService accounts, IHttpContextAccessor httpContextAccessor)
 {
-    public async Task<ReadingDocument> OpenAsync(Guid id, CancellationToken ct = default)
+    public async Task<ReadingDocument> OpenAsync(Guid id, CancellationToken ct = default, string? authenticatedUserId = null)
     {
-        var viewer=httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var viewer=authenticatedUserId ?? httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if(!await accounts.CanReadAsync(viewer,id.ToString()))throw new UnauthorizedAccessException("Access to this edition is not granted.");
         var cs = new SqliteConnectionStringBuilder {
             DataSource = Path.Combine(environment.ContentRootPath, "App_Data", "anka.db"),
