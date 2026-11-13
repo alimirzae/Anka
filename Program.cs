@@ -191,6 +191,15 @@ app.MapPost("/api/admin/submissions/{id:guid}/review",async(Guid id,HttpContext 
     if(reviewer is null||!await accounts.IsCurrentRoleAsync(reviewer,"Admin"))return Results.Forbid();
     return await accounts.ReviewBookAsync(id.ToString(),reviewer,review.Approve)?Results.Ok(new{ok=true}):Results.NotFound();
 }).RequireAuthorization(policy=>policy.RequireRole("Admin"));
+app.MapGet("/api/books/{id:guid}/editions",async(Guid id,AnkaAccountService accounts)=>
+    Results.Ok(await accounts.OtherEditionsAsync(id.ToString())));
+app.MapPost("/api/admin/editions/{id:guid}/link",async(Guid id,HttpContext context,AnkaAccountService accounts,AnkaEditionLink request)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var reviewer=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(reviewer is null||!await accounts.IsCurrentRoleAsync(reviewer,"Admin"))return Results.Forbid();
+    if(!Guid.TryParse(request.WorkId,out var target))return Results.BadRequest();
+    return await accounts.LinkEditionAsync(id.ToString(),target.ToString())?Results.Ok(new{ok=true}):Results.NotFound();
+}).RequireAuthorization(policy=>policy.RequireRole("Admin"));
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", app = "Anka", framework = "Blazor Server" }));
 app.MapGet("/api/catalog/status", async () =>
 {
@@ -306,6 +315,22 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         rightsCmd.Parameters.AddWithValue("@uploader",uploader);
         rightsCmd.Parameters.AddWithValue("@rights",rightsDeclaration);
         await rightsCmd.ExecuteNonQueryAsync();
+        await using var workCmd = new SqliteCommand("""
+          INSERT INTO anka_works(id,title,author,created_utc)
+          VALUES(@id,@title,@author,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        """,db,transaction);
+        workCmd.Parameters.AddWithValue("@id",id.ToString());
+        workCmd.Parameters.AddWithValue("@title",title);
+        workCmd.Parameters.AddWithValue("@author",author);
+        await workCmd.ExecuteNonQueryAsync();
+        await using var editionCmd = new SqliteCommand("""
+          INSERT INTO anka_editions(book_id,work_id,language,script,content_status)
+          VALUES(@id,@id,@language,@script,'unreviewed')
+        """,db,transaction);
+        editionCmd.Parameters.AddWithValue("@id",id.ToString());
+        editionCmd.Parameters.AddWithValue("@language",language);
+        editionCmd.Parameters.AddWithValue("@script",language is "az-Arab" or "fa" ? "Arabic" : "Latin");
+        await editionCmd.ExecuteNonQueryAsync();
         await transaction.CommitAsync();
         return Results.Created($"/api/books/{id}/file", new { id, title, state="pending" });
     }
@@ -318,5 +343,6 @@ app.Run();
 
 public record AnkaRightsRequest(string? Statement);
 public record AnkaReview(bool Approve);
+public record AnkaEditionLink(string? WorkId);
 public record AnkaCredentials(string? Email,string? Password,string? Name);
 public record BookListItem(string Id, string Title, string Author, string Language, string Script, long Bytes);
