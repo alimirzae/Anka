@@ -1,0 +1,25 @@
+@page "/publisher"
+@implements IDisposable
+@inject UiText L
+
+<div class="anka-publisher">
+ <header class="market-intro">
+  <span class="eyebrow">ANKA PUBLISHER</span>
+  <h1>@L.T("publisherTitle")</h1>
+  <p>@L.T("publisherSubtitle")</p>
+ </header>
+ <section class="publisher-steps">
+  <article><span>01</span><h2>@L.T("publisherStep1")</h2><p>@L.T("publisherStep1Detail")</p></article>
+  <article><span>02</span><h2>@L.T("publisherStep2")</h2><p>@L.T("publisherStep2Detail")</p></article>
+  <article><span>03</span><h2>@L.T("publisherStep3")</h2><p>@L.T("publisherStep3Detail")</p></article>
+ </section>
+ <div class="publisher-status" role="status">
+  <strong>@L.T("publisherRestricted")</strong>
+  <p>@L.T("publisherRestrictedDetail")</p>
+ </div>
+</div>
+@code{
+ protected override void OnInitialized()=>L.Changed+=Refresh;
+ private void Refresh()=>_=InvokeAsync(StateHasChanged);
+ public void Dispose()=>L.Changed-=Refresh;
+}
