@@ -11,6 +11,7 @@
  window.ankaAccount={
   register:(email,password,name)=>post("/api/account/register",{email,password,name}),
   login:(email,password,name)=>post("/api/account/login",{email,password,name}),
+  testLogin:(email)=>post("/api/account/test-login",{email,pin:"1234"}),
   logout:()=>post("/api/account/logout",{}),
   async getShelfDetails(){
    const me=await this.me();
