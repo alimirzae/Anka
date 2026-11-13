@@ -78,6 +78,8 @@ public sealed class UiText
         ["grantAccess"] = ["اعطای دسترسی", "Erişim ver", "İcazə ver", "ایجازه وئر"],
         ["restrictedBook"] = ["نیازمند تأیید مدیر", "Yönetici onayı gerekir", "İdarəçi təsdiqi tələb olunur", "مدیر تصویبی لازیم"],
         ["freeBook"] = ["کتاب رایگان", "Ücretsiz kitap", "Pulsuz kitab", "پولسوز کیتاب"],
+        ["testLogin1234"] = ["ورود آزمایشی با ۱۲۳۴", "1234 ile test girişi", "1234 ilə test girişi", "۱۲۳۴ ایله سیناق گیریشی"],
+        ["testLoginWarning"] = ["فقط روی رایانه توسعه و آدرس محلی کار می‌کند؛ روی سایت اصلی غیرفعال است.", "Yalnızca yerel geliştirmede çalışır; gerçek sitede kapalıdır.", "Yalnız yerli test mühitində işləyir; əsas saytda bağlıdır.", "یالنیز لوکال تست‌ده ایشلیر؛ اصلی سایتدا باغلی‌دیر."],
         ["storeTitle"] = ["کتابخانه و فروشگاه آنکا", "ANKA kitaplığı ve mağazası", "ANKA kitabxanası və mağazası", "آنکا کیتابخاناسی و ماغازاسی"],
         ["storeSubtitle"] = ["کتاب‌ها را جستجو کنید و نسخه مناسب را برای مطالعه انتخاب کنید.", "Kitapları bulun ve okumak istediğiniz sürümü seçin.", "Kitabları tapın və oxumaq üçün uyğun variantı seçin.", "کیتابلاری تاپین و اوخوماق اوچون اویغون نسخه‌نی سئچین."],
         ["storeEmptyHint"] = ["کتاب‌های کامل پس از واردسازی در این بخش نمایش داده می‌شوند.", "İçe aktarılan kitaplar burada görünür.", "Daxil edilən kitablar burada görünəcək.", "یوکلنن کیتابلار بورادا گؤرونجک."],
@@ -196,6 +198,8 @@ public sealed class UiText
 
     private static readonly Dictionary<string, string> English = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["testLogin1234"] = "Development login with 1234",
+        ["testLoginWarning"] = "Local development only; disabled on the public site.",
         ["manualAccessTitle"] = "Manual book access",
         ["manualAccessHelp"] = "Administrators can grant access to restricted books without an online payment.",
         ["readerEmail"] = "Reader email",
