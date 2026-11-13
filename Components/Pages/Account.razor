@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject UiText L
 @inject IJSRuntime Js
+@inject IWebHostEnvironment Env
 
 <section class="anka-account">
  <div class="market-intro"><span class="eyebrow">ANKA ACCOUNT</span><h1>@L.T("accountTitle")</h1><p>@L.T("accountHelp")</p></div>
@@ -22,6 +23,10 @@
    <label>@L.T("password")<input @bind="password" type="password" autocomplete="@(register?"new-password":"current-password")" /></label>
    <button class="btn btn-dark" @onclick="Submit" disabled="@busy">@(register?L.T("register"):L.T("signIn"))</button>
    <p class="account-note">@L.T("passwordHint")</p>
+   @if(Env.IsDevelopment()){
+    <button class="btn btn-outline" @onclick="TestSignIn" disabled="@busy">@L.T("testLogin1234")</button>
+    <p class="account-note">@L.T("testLoginWarning")</p>
+   }
   </div>
  }
  @if(!string.IsNullOrWhiteSpace(status)){<p role="status" class="account-message">@status</p>}
@@ -48,6 +53,16 @@
     if(register){register=false;status=L.T("registrationSuccess");password="";}
     else{isLoggedIn=true;displayName=email;role=response.Role??"Reader";status=L.T("signInSuccess");password="";}
    }else status=response.Error??L.T("accountError");
+  }catch(JSException){status=L.T("accountError");}
+  finally{busy=false;}
+ }
+ private async Task TestSignIn(){
+  if(!Env.IsDevelopment())return;
+  busy=true;status="";
+  try{
+   var response=await Js.InvokeAsync<AnkaAccountResult>("ankaAccount.testLogin",email);
+   if(response.Ok){isLoggedIn=true;displayName=email;status=L.T("signInSuccess");}
+   else status=response.Error??L.T("accountError");
   }catch(JSException){status=L.T("accountError");}
   finally{busy=false;}
  }
