@@ -1,0 +1,76 @@
+@page "/store"
+@implements IDisposable
+@inject UiText L
+@inject IWebHostEnvironment HostEnvironment
+@inject NavigationManager Navigation
+
+<div class="anka-market">
+ <header class="market-intro">
+  <span class="eyebrow">ANKA STORE</span>
+  <h1>@L.T("storeTitle")</h1>
+  <p>@L.T("storeSubtitle")</p>
+ </header>
+ <div class="market-filters">
+  <label class="market-search">@L.T("search")
+   <input @bind="search" @bind:event="oninput" placeholder="@L.T("searchShelf")" aria-label="@L.T("search")" />
+  </label>
+  <label>@L.T("readingLanguage")
+   <select @bind="language" aria-label="@L.T("readingLanguage")">
+    <option value="">@L.T("all")</option>
+    <option value="az-Arab">تورکجه</option>
+    <option value="az-Latn">Az.Turkce</option>
+    <option value="tr">Türkçe</option>
+    <option value="fa">فارسی</option>
+    <option value="en">English</option>
+   </select>
+  </label>
+  <span class="market-count">@Visible.Count @L.T("booksUnit")</span>
+ </div>
+ @if(error is not null){<p role="alert" class="notice">@error</p>}
+ else if(books.Count==0){<div class="library-empty"><strong>@L.T("shelfEmpty")</strong><p>@L.T("storeEmptyHint")</p></div>}
+ else if(Visible.Count==0){<div class="library-empty">@L.T("searchNoResult")</div>}
+ else {
+  <div class="market-grid">
+   @foreach(var book in Visible){
+    <article class="market-book" @key="book.Id">
+     <div class="market-book-art" dir="auto"><small>ANKA COLLECTION</small><strong>@book.Title</strong><span>@book.Author</span></div>
+     <div class="market-book-body">
+      <span class="market-language">@LabelLanguage(book.Language)</span>
+      <h2 dir="auto">@book.Title</h2>
+      <p dir="auto">@book.Author</p>
+      <button class="btn btn-dark" @onclick="() => Open(book.Id)">@L.T("continue")</button>
+     </div>
+    </article>
+   }
+  </div>
+ }
+ <p class="market-note">@L.T("storeRightsNotice")</p>
+</div>
+
+@code {
+ private List<BookListItem> books=new();
+ private string search="",language="";
+ private string? error;
+ private List<BookListItem> Visible => books.Where(b=>
+    (string.IsNullOrWhiteSpace(language)||b.Language==language||(language=="az-Latn"&&b.Language=="az")) &&
+    (string.IsNullOrWhiteSpace(search)||(b.Title+" "+b.Author).Contains(search,StringComparison.OrdinalIgnoreCase))
+  ).ToList();
+ protected override void OnInitialized()=>L.Changed+=Refresh;
+ private void Refresh()=>_=InvokeAsync(StateHasChanged);
+ protected override async Task OnInitializedAsync(){
+  try{
+   var file=Path.Combine(HostEnvironment.ContentRootPath,"App_Data","anka.db");
+   await using var db=new Microsoft.Data.Sqlite.SqliteConnection(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{
+    DataSource=file,Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite}.ToString());
+   await db.OpenAsync();
+   await using var cmd=db.CreateCommand();
+   cmd.CommandText="SELECT id,title,author,language,original_script,bytes FROM books ORDER BY created_utc DESC";
+   await using var cursor=await cmd.ExecuteReaderAsync();
+   while(await cursor.ReadAsync())books.Add(new BookListItem(cursor.GetString(0),cursor.GetString(1),cursor.GetString(2),cursor.GetString(3),cursor.GetString(4),cursor.GetInt64(5)));
+  }catch(Exception){error=L.T("readerError");}
+ }
+ private void Open(string id)=>Navigation.NavigateTo("/read/"+id);
+ private static string LabelLanguage(string code)=>code switch{
+  "az-Arab"=>"تورکجه","az-Latn" or "az"=>"Az.Turkce","tr"=>"Türkçe","en"=>"English","fa"=>"فارسی",_=>code};
+ public void Dispose()=>L.Changed-=Refresh;
+}
