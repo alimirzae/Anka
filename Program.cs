@@ -173,6 +173,11 @@ app.MapPost("/api/admin/publishers/{id:guid}/review",async(Guid id,HttpContext c
     if(reviewer is null||!await accounts.IsCurrentRoleAsync(reviewer,"Admin"))return Results.Forbid();
     return await accounts.ReviewPublisherAsync(id.ToString(),review.Approve)?Results.Ok(new{ok=true}):Results.NotFound();
 }).RequireAuthorization(policy=>policy.RequireRole("Admin"));
+app.MapGet("/api/publisher/my-submissions",async(HttpContext context,AnkaAccountService accounts)=>{
+    var userId=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(userId is null)return Results.Unauthorized();
+    return Results.Ok(await accounts.MyBookSubmissionsAsync(userId));
+}).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin"));
 app.MapGet("/api/admin/submissions",async(AnkaAccountService accounts)=>Results.Ok(await accounts.BookSubmissionsAsync()))
     .RequireAuthorization(policy=>policy.RequireRole("Admin"));
 app.MapPost("/api/admin/submissions/{id:guid}/review",async(Guid id,HttpContext context,AnkaAccountService accounts,AnkaReview review)=>{
