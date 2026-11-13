@@ -126,6 +126,25 @@ app.MapPost("/api/account/login",async (HttpContext context,AnkaAccountService a
     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,new ClaimsPrincipal(identity));
     return Results.Ok(new{ok=true,role=account.Value.Role});
 }).RequireRateLimiting("account");
+
+if(app.Environment.IsDevelopment())
+{
+    app.MapPost("/api/account/test-login",async(HttpContext context,AnkaAccountService accounts,AnkaTestLogin input)=>{
+        // Deliberately unavailable in Production; development loopback only.
+        if(!System.Net.IPAddress.IsLoopback(context.Connection.RemoteIpAddress??System.Net.IPAddress.None))
+            return Results.StatusCode(403);
+        if(!SameOrigin(context.Request)||input.Pin!="1234")return Results.StatusCode(403);
+        var account=await accounts.FindLocalTestAccountAsync(input.Email??"");
+        if(account is null)return Results.Json(new{error="Unknown test account"},statusCode:401);
+        var identity=new ClaimsIdentity(new[]{
+            new Claim(ClaimTypes.NameIdentifier,account.Value.Id),
+            new Claim(ClaimTypes.Name,account.Value.Name),
+            new Claim(ClaimTypes.Role,account.Value.Role)
+        },CookieAuthenticationDefaults.AuthenticationScheme);
+        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,new ClaimsPrincipal(identity));
+        return Results.Ok(new{ok=true});
+    }).RequireRateLimiting("account");
+}
 app.MapPost("/api/account/logout",async (HttpContext context)=>{
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
     await context.SignOutAsync();
@@ -354,6 +373,7 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 app.Run();
 
+public record AnkaTestLogin(string? Email,string? Pin);
 public record AnkaRightsRequest(string? Statement);
 public record AnkaReview(bool Approve);
 public record AnkaEditionLink(string? WorkId);
