@@ -58,6 +58,13 @@ public sealed class UiText
         ["bookPublisher"] = ["ناشر", "Yayıncı", "Nəşriyyat", "ناشیر"],
         ["editionOptions"] = ["نسخه‌های موجود", "Mevcut sürümler", "Mövcud variantlar", "موجود نسخه‌لر"],
         ["publisherSubmissions"] = ["کتاب‌های ارسالی من", "Gönderdiğim kitaplar", "Göndərdiyim kitablar", "گؤندردیگیم کیتابلار"],
+        ["adminSetupTitle"] = ["فعال‌سازی مدیر اولیه", "İlk yönetici etkinleştirme", "İlk idarəçini aktivləşdir", "ایلک مدیر فعاللاش‌دیرماق"],
+        ["adminSetupHelp"] = ["ابتدا با حساب خود وارد شوید؛ کلید یک‌بارمصرف در پوشه امن سرور ذخیره شده است.", "Önce hesabınıza giriş yapın; tek kullanımlık anahtar sunucudadır.", "Əvvəl daxil olun; birdəfəlik açar serverdədir.", "اؤنجه حسابینیزا گیریش ائدین؛ بیر دفعه‌لیک آچار سروردادیر."],
+        ["adminSetupKey"] = ["کلید یک‌بارمصرف راه‌اندازی", "Tek kullanımlık kurulum anahtarı", "Birdəfəlik quraşdırma açarı", "بیر دفعه‌لیک قورولوش آچاری"],
+        ["adminSetupActivate"] = ["تأیید مدیر", "Yöneticiyi etkinleştir", "İdarəçini aktivləşdir", "مدیری فعال ائت"],
+        ["adminSetupSuccess"] = ["حساب مدیر فعال شد؛ خارج شوید و دوباره وارد شوید.", "Yönetici etkin; çıkıp tekrar giriş yapın.", "İdarəçi aktivdir; çıxıb yenidən daxil olun.", "مدیر فعال‌دیر؛ چیخین و یئندن گیریش ائدین."],
+        ["adminAlreadyExists"] = ["مدیر سیستم قبلاً فعال شده است.", "Yönetici zaten etkin.", "İdarəçi artıq aktivdir.", "مدیر آرتیق فعال‌دیر."],
+        ["adminSetupFailed"] = ["کلید نامعتبر است یا راه‌اندازی امکان‌پذیر نیست.", "Anahtar geçersiz veya kurulum kapalı.", "Açar yanlışdır və ya qurma bağlıdır.", "آچار یانلیش‌دیر یا قورولوش باغلی‌دیر."],
         ["storeTitle"] = ["کتابخانه و فروشگاه آنکا", "ANKA kitaplığı ve mağazası", "ANKA kitabxanası və mağazası", "آنکا کیتابخاناسی و ماغازاسی"],
         ["storeSubtitle"] = ["کتاب‌ها را جستجو کنید و نسخه مناسب را برای مطالعه انتخاب کنید.", "Kitapları bulun ve okumak istediğiniz sürümü seçin.", "Kitabları tapın və oxumaq üçün uyğun variantı seçin.", "کیتابلاری تاپین و اوخوماق اوچون اویغون نسخه‌نی سئچین."],
         ["storeEmptyHint"] = ["کتاب‌های کامل پس از واردسازی در این بخش نمایش داده می‌شوند.", "İçe aktarılan kitaplar burada görünür.", "Daxil edilən kitablar burada görünəcək.", "یوکلنن کیتابلار بورادا گؤرونجک."],
@@ -176,6 +183,13 @@ public sealed class UiText
 
     private static readonly Dictionary<string, string> English = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["adminSetupTitle"] = "First administrator setup",
+        ["adminSetupHelp"] = "Sign in first; the one-time activation key is stored securely on the server.",
+        ["adminSetupKey"] = "One-time setup key",
+        ["adminSetupActivate"] = "Activate administrator",
+        ["adminSetupSuccess"] = "Administrator activated. Sign out and sign in again.",
+        ["adminAlreadyExists"] = "An administrator is already active.",
+        ["adminSetupFailed"] = "Invalid key or setup is unavailable.",
         ["bookCategory"] = "Category",
         ["categoryGeneral"] = "General",
         ["categoryLiterature"] = "Literature",
