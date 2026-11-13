@@ -1,0 +1,33 @@
+@page "/admin/setup"
+@inject UiText L
+@inject IJSRuntime Js
+
+<section class="anka-account">
+ <header class="market-intro">
+  <span class="eyebrow">ANKA ADMIN</span>
+  <h1>@L.T("adminSetupTitle")</h1>
+  <p>@L.T("adminSetupHelp")</p>
+ </header>
+ <div class="account-panel">
+  <label for="bootstrap-key">@L.T("adminSetupKey")
+   <input id="bootstrap-key" @bind="key" type="password" autocomplete="off" />
+  </label>
+  <button class="btn btn-dark" disabled="@busy" @onclick="Activate">@L.T("adminSetupActivate")</button>
+  @if(status is not null){<p role="status">@status</p>}
+ </div>
+</section>
+@code {
+ private string key="";
+ private bool busy;
+ private string? status;
+ private async Task Activate(){
+  busy=true;status=null;
+  try{
+   var result=await Js.InvokeAsync<Result>("ankaAccount.activateFirstAdmin",key);
+   status=result.Ok?L.T("adminSetupSuccess"):result.Status==410?L.T("adminAlreadyExists"):L.T("adminSetupFailed");
+   key="";
+  }catch(JSException){status=L.T("adminSetupFailed");}
+  finally{busy=false;}
+ }
+ private sealed class Result{public Result(){}public bool Ok{get;set;}public int Status{get;set;}}
+}
