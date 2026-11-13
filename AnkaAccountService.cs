@@ -1,0 +1,131 @@
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Data.Sqlite;
+
+namespace Anka;
+
+/// <summary>Durable local accounts with password hashing, role claims and safe defaults.</summary>
+public sealed class AnkaAccountService(IWebHostEnvironment env)
+{
+    private string Connection => new SqliteConnectionStringBuilder {
+        DataSource=Path.Combine(env.ContentRootPath,"App_Data","anka.db"),
+        Mode=SqliteOpenMode.ReadWriteCreate,DefaultTimeout=30
+    }.ToString();
+
+    public async Task EnsureCreatedAsync(CancellationToken ct=default)
+    {
+        await using var db=new SqliteConnection(Connection);
+        await db.OpenAsync(ct);
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            CREATE TABLE IF NOT EXISTS anka_users(
+              id TEXT PRIMARY KEY,
+              email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+              display_name TEXT NOT NULL,
+              password_hash TEXT NOT NULL,
+              role TEXT NOT NULL DEFAULT 'Reader',
+              disabled INTEGER NOT NULL DEFAULT 0,
+              created_utc TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS anka_user_shelves(
+              user_id TEXT NOT NULL,
+              book_id TEXT NOT NULL,
+              added_utc TEXT NOT NULL,
+              PRIMARY KEY(user_id,book_id),
+              FOREIGN KEY(user_id) REFERENCES anka_users(id)
+            );
+            CREATE TABLE IF NOT EXISTS anka_publisher_submissions(
+              id TEXT PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              book_id TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'pending',
+              rights_statement TEXT NOT NULL,
+              submitted_utc TEXT NOT NULL,
+              reviewed_utc TEXT,
+              FOREIGN KEY(user_id) REFERENCES anka_users(id)
+            );
+            """;
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    private static string Hash(string password)
+    {
+        var salt=RandomNumberGenerator.GetBytes(16);
+        var hash=Rfc2898DeriveBytes.Pbkdf2(password,salt,240_000,HashAlgorithmName.SHA256,32);
+        return "v1:"+Convert.ToBase64String(salt)+":"+Convert.ToBase64String(hash);
+    }
+    private static bool Verify(string password,string encoded)
+    {
+        var segments=encoded.Split(':');
+        if(segments.Length!=3 || segments[0]!="v1")return false;
+        try {
+            var salt=Convert.FromBase64String(segments[1]);
+            var expected=Convert.FromBase64String(segments[2]);
+            if(salt.Length!=16 || expected.Length!=32)return false;
+            var actual=Rfc2898DeriveBytes.Pbkdf2(password,salt,240_000,HashAlgorithmName.SHA256,32);
+            return CryptographicOperations.FixedTimeEquals(actual,expected);
+        }catch(FormatException){return false;}
+    }
+    public async Task<(bool Success,string Error)> RegisterAsync(string email,string name,string password)
+    {
+        email=email.Trim().ToLowerInvariant();name=name.Trim();
+        if(email.Length>254 || email.Length<5 || !System.Net.Mail.MailAddress.TryCreate(email,out var mail) || mail.Address!=email)
+            return(false,"Valid email required.");
+        if(name.Length<2 || name.Length>100 || password.Length<12 || password.Length>128)
+            return(false,"Name must be 2–100 characters and password at least 12 characters.");
+        await using var db=new SqliteConnection(Connection);
+        await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="INSERT INTO anka_users(id,email,display_name,password_hash,role,created_utc) VALUES(@id,@email,@name,@hash,'Reader',strftime('%Y-%m-%dT%H:%M:%fZ','now'))";
+        cmd.Parameters.AddWithValue("@id",Guid.NewGuid().ToString());
+        cmd.Parameters.AddWithValue("@email",email);
+        cmd.Parameters.AddWithValue("@name",name);
+        cmd.Parameters.AddWithValue("@hash",Hash(password));
+        try {await cmd.ExecuteNonQueryAsync();return(true,"");}
+        catch(SqliteException ex) when(ex.SqliteErrorCode==19){return(false,"Account already exists.");}
+    }
+    public async Task<(string Id,string Name,string Role)?> AuthenticateAsync(string email,string password)
+    {
+        email=email.Trim().ToLowerInvariant();
+        if(email.Length>254 || password.Length>128)return null;
+        await using var db=new SqliteConnection(Connection);
+        await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="SELECT id,display_name,role,password_hash FROM anka_users WHERE email=@email AND disabled=0";
+        cmd.Parameters.AddWithValue("@email",email);
+        await using var reader=await cmd.ExecuteReaderAsync();
+        if(!await reader.ReadAsync())return null;
+        string id=reader.GetString(0),name=reader.GetString(1),role=reader.GetString(2),hash=reader.GetString(3);
+        return Verify(password,hash)?(id,name,role):null;
+    }
+    public async Task<bool> MakePublisherAsync(string userId)
+    {
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="UPDATE anka_users SET role='Publisher' WHERE id=@id AND role='Reader'";
+        cmd.Parameters.AddWithValue("@id",userId);
+        return await cmd.ExecuteNonQueryAsync()==1;
+    }
+    public async Task<IReadOnlyList<string>> ShelfAsync(string userId)
+    {
+        var result=new List<string>();
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="SELECT book_id FROM anka_user_shelves WHERE user_id=@user ORDER BY added_utc DESC";
+        cmd.Parameters.AddWithValue("@user",userId);
+        await using var r=await cmd.ExecuteReaderAsync();
+        while(await r.ReadAsync())result.Add(r.GetString(0));
+        return result;
+    }
+    public async Task AddToShelfAsync(string userId,string bookId)
+    {
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="INSERT OR IGNORE INTO anka_user_shelves(user_id,book_id,added_utc) VALUES(@u,@b,strftime('%Y-%m-%dT%H:%M:%fZ','now'))";
+        cmd.Parameters.AddWithValue("@u",userId);cmd.Parameters.AddWithValue("@b",bookId);
+        await cmd.ExecuteNonQueryAsync();
+    }
+}
