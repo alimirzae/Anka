@@ -24,11 +24,14 @@
   <option value="tr">Türkçe</option>
   <option value="en">English</option>
  </select>
+ <label for="rightsDeclaration">@L.T("rightsDeclaration")</label>
+ <textarea id="rightsDeclaration" @bind="rights" rows="4" maxlength="2000" placeholder="@L.T("rightsHelp")"></textarea>
+ <p class="account-note">@L.T("uploadReviewNotice")</p>
  <button class="primary" disabled="@busy" @onclick="UploadBook">@L.T("uploadSubmit")</button>
  <p role="status">@status</p>
 </div>
 @code {
- private string title="",author="",language="fa",status="";
+ private string title="",author="",language="az-Arab",rights="",status="";
  private bool busy;
  protected override void OnInitialized()=>L.Changed+=Updated;
  private void Updated()=>_=InvokeAsync(StateHasChanged);
@@ -37,8 +40,8 @@
   busy=true;status=L.T("uploading");
   try
   {
-   var result=await Js.InvokeAsync<string>("ankaReader.upload",title,author,language);
-   if(result=="ok")Nav.NavigateTo("/");
+   var result=await Js.InvokeAsync<string>("ankaReader.upload",title,author,language,rights);
+   if(result=="ok"){status=L.T("uploadReviewNotice");busy=false;}
    else status=result=="ابتدا یک فایل EPUB انتخاب کنید."?L.T("firstSelect"):L.T("uploadFailed")+": "+result;
   }
   catch(JSException ex){status=L.T("uploadFailed")+": "+ex.Message;}
