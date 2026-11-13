@@ -38,7 +38,7 @@
       <span class="market-language">@LabelLanguage(book.Language)</span>
       <h2 dir="auto">@book.Title</h2>
       <p dir="auto">@book.Author</p>
-      <button class="btn btn-dark" @onclick="() => Open(book.Id)">@L.T("continue")</button>
+      <button class="btn btn-dark" @onclick="() => Open(book.Id)">@L.T("viewBook")</button>
      </div>
     </article>
    }
@@ -69,7 +69,7 @@
    while(await cursor.ReadAsync())books.Add(new BookListItem(cursor.GetString(0),cursor.GetString(1),cursor.GetString(2),cursor.GetString(3),cursor.GetString(4),cursor.GetInt64(5)));
   }catch(Exception){error=L.T("readerError");}
  }
- private void Open(string id)=>Navigation.NavigateTo("/read/"+id);
+ private void Open(string id)=>Navigation.NavigateTo("/store/book/"+id);
  private static string LabelLanguage(string code)=>code switch{
   "az-Arab"=>"تورکجه","az-Latn" or "az"=>"Az.Turkce","tr"=>"Türkçe","en"=>"English","fa"=>"فارسی",_=>code};
  public void Dispose()=>L.Changed-=Refresh;
