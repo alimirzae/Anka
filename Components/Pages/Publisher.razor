@@ -28,6 +28,15 @@
    <p>@L.T("publisherReviewNotice")</p>
    <a href="/upload" class="btn btn-dark">@L.T("addBook")</a>
    @if(role=="Admin"){<a href="/admin" class="btn btn-outline">ANKA Admin</a>}
+   <section class="moderation-list">
+    <h2>@L.T("publisherSubmissions")</h2>
+    @if(submissions.Count==0){<p>@L.T("nothingPending")</p>}
+    @foreach(var book in submissions){
+     <article class="moderation-entry" @key="book.BookId">
+      <div><strong>@book.Title</strong><small>@book.State</small><p dir="auto">@book.Rights</p></div>
+     </article>
+    }
+   </section>
   </div>
  } else {
   <div class="publisher-status">
@@ -43,6 +52,7 @@
 @code{
  private bool loaded,authenticated,busy;
  private string role="",statement="";
+ private List<Submission> submissions=new();
  private string? message;
  protected override void OnInitialized()=>L.Changed+=Refresh;
  private void Refresh()=>_=InvokeAsync(StateHasChanged);
@@ -51,6 +61,10 @@
   try{
    var result=await Js.InvokeAsync<AccountState>("ankaAccount.me");
    authenticated=result.Authenticated;role=result.Role??"";
+   if(role=="Publisher"||role=="Admin"){
+    var list=await Js.InvokeAsync<SubmissionList>("ankaAccount.getMySubmissions");
+    if(list.Ok)submissions=list.Items?.ToList()??new();
+   }
   }catch(JSException){authenticated=false;}
   loaded=true;StateHasChanged();
  }
@@ -64,5 +78,7 @@
  }
  public void Dispose()=>L.Changed-=Refresh;
  private sealed class AccountState{public AccountState(){}public bool Authenticated{get;set;}public string? Role{get;set;}}
+ private sealed class SubmissionList{public SubmissionList(){}public bool Ok{get;set;}public Submission[]? Items{get;set;}}
+ private sealed class Submission{public Submission(){}public string BookId{get;set;}="";public string Title{get;set;}="";public string Rights{get;set;}="";public string State{get;set;}="";}
  private sealed class OperationResult{public OperationResult(){}public bool Ok{get;set;}public string? Error{get;set;}}
 }
