@@ -1,0 +1,64 @@
+@page "/my-library"
+@implements IDisposable
+@inject UiText L
+@inject IJSRuntime Js
+@inject NavigationManager Nav
+
+<section class="anka-market">
+ <header class="market-intro">
+  <span class="eyebrow">ANKA · MY LIBRARY</span>
+  <h1>@L.T("myLibrary")</h1>
+  <p>@L.T("shelfDescription")</p>
+ </header>
+ @if(loading) {
+  <p role="status">@L.T("readerLoading")</p>
+ } else if(!authenticated) {
+  <div class="library-empty">
+   <strong>@L.T("loginToLibrary")</strong>
+   <p>@L.T("accountHelp")</p>
+   <a class="btn btn-dark" href="/account">@L.T("signIn")</a>
+  </div>
+ } else if(saved.Count == 0) {
+  <div class="library-empty"><strong>@L.T("shelfEmpty")</strong>
+   <p>@L.T("shelfEmptySub")</p>
+   <a class="btn btn-dark" href="/store">@L.T("storeNav")</a>
+  </div>
+ } else {
+  <div class="market-grid">
+   @foreach(var book in saved){
+    <article class="market-book" @key="book.Id">
+     <div class="market-book-art" dir="auto"><small>ANKA COLLECTION</small><strong>@book.Title</strong><span>@book.Author</span></div>
+     <div class="market-book-body">
+      <span class="market-language">@LanguageName(book.Language)</span>
+      <h2 dir="auto">@book.Title</h2><p dir="auto">@book.Author</p>
+      <button class="btn btn-dark" @onclick="()=>Nav.NavigateTo("/read/"+book.Id)">@L.T("continue")</button>
+     </div>
+    </article>
+   }
+  </div>
+ }
+</section>
+@code{
+ private List<BookListItem> saved=new();
+ private bool authenticated,loading=true;
+ protected override void OnInitialized()=>L.Changed+=Refresh;
+ private void Refresh()=>_=InvokeAsync(StateHasChanged);
+ protected override async Task OnAfterRenderAsync(bool firstRender){
+  if(!firstRender)return;
+  try{
+   var result=await Js.InvokeAsync<AnkaShelfResult>("ankaAccount.getShelfDetails");
+   authenticated=result.Authenticated;
+   saved=result.Books?.ToList()??new();
+  }catch(JSException){}
+  finally{loading=false;StateHasChanged();}
+ }
+ private static string LanguageName(string language)=>language switch {
+  "az-Arab"=>"تورکجه","az-Latn" or "az"=>"Az.Turkce","tr"=>"Türkçe","fa"=>"فارسی","en"=>"English",_=>language
+ };
+ public void Dispose()=>L.Changed-=Refresh;
+ private sealed class AnkaShelfResult {
+  public AnkaShelfResult(){}
+  public bool Authenticated{get;set;}
+  public BookListItem[]? Books{get;set;}
+ }
+}
