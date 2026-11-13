@@ -136,16 +136,6 @@ app.MapGet("/api/account/me",(ClaimsPrincipal user)=>Results.Ok(new{
     name=user.Identity?.Name,
     role=user.FindFirst(ClaimTypes.Role)?.Value
 }));
-app.MapPost("/api/account/publisher",async (HttpContext context,AnkaAccountService accounts)=>{
-    if(!SameOrigin(context.Request))return Results.StatusCode(403);
-    var expected=Environment.GetEnvironmentVariable("ANKA_PUBLISHER_SETUP_KEY");
-    if(string.IsNullOrWhiteSpace(expected)||expected.Length<32)return Results.StatusCode(503);
-    var provided=context.Request.Headers["X-Anka-Setup-Key"].ToString();
-    if(provided.Length!=expected.Length || !CryptographicOperations.FixedTimeEquals(
-        System.Text.Encoding.UTF8.GetBytes(provided),System.Text.Encoding.UTF8.GetBytes(expected)))return Results.StatusCode(403);
-    var id=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    return id is not null && await accounts.MakePublisherAsync(id)?Results.Ok(new{ok=true}):Results.BadRequest();
-}).RequireAuthorization().RequireRateLimiting("account");
 app.MapGet("/api/me/shelf",async (ClaimsPrincipal user,AnkaAccountService accounts)=>{
     var id=user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     return id is null?Results.Unauthorized():Results.Ok(await accounts.ShelfAsync(id));
