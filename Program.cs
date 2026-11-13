@@ -228,10 +228,16 @@ app.MapGet("/api/books", async () =>
     var books = new List<BookListItem>();
     await using var db = new SqliteConnection(connectionString);
     await db.OpenAsync();
-    await using var cmd = new SqliteCommand("SELECT id,title,author,language,original_script,bytes FROM books b WHERE NOT EXISTS (SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved') ORDER BY created_utc DESC", db);
+    await using var cmd = new SqliteCommand("""
+        SELECT b.id,b.title,b.author,b.language,b.original_script,b.bytes,COALESCE(w.category,'General')
+        FROM books b LEFT JOIN anka_editions e ON e.book_id=b.id
+        LEFT JOIN anka_works w ON w.id=e.work_id
+        WHERE NOT EXISTS (SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')
+        ORDER BY b.created_utc DESC
+        """, db);
     await using var r = await cmd.ExecuteReaderAsync();
     while (await r.ReadAsync())
-        books.Add(new BookListItem(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5)));
+        books.Add(new BookListItem(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5),r.GetString(6)));
     return Results.Ok(books);
 });
 app.MapGet("/api/books/{id:guid}/file", async (Guid id,HttpContext context) =>
@@ -352,4 +358,4 @@ public record AnkaRightsRequest(string? Statement);
 public record AnkaReview(bool Approve);
 public record AnkaEditionLink(string? WorkId);
 public record AnkaCredentials(string? Email,string? Password,string? Name);
-public record BookListItem(string Id, string Title, string Author, string Language, string Script, long Bytes);
+public record BookListItem(string Id, string Title, string Author, string Language, string Script, long Bytes, string Category="General");
