@@ -1,3 +1,8 @@
+using System.Security.Claims;
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.RateLimiting;
 using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
@@ -10,6 +15,39 @@ builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 60L * 1024 *
 builder.Services.AddProblemDetails();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddScoped<UiText>();
+builder.Services.AddSingleton<AnkaAccountService>();
+builder.Services.AddDataProtection().SetApplicationName("ANKA-Reader")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath,"App_Data","keys")));
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options=>{
+        options.Cookie.Name="Anka.Session";
+        options.Cookie.HttpOnly=true;
+        options.Cookie.SecurePolicy=CookieSecurePolicy.Always;
+        options.Cookie.SameSite=SameSiteMode.Strict;
+        options.ExpireTimeSpan=TimeSpan.FromDays(14);
+        options.SlidingExpiration=true;
+        options.Events.OnRedirectToLogin=context=>{
+            if(context.Request.Path.StartsWithSegments("/api")) {
+                context.Response.StatusCode=401;
+                return Task.CompletedTask;
+            }
+            context.Response.Redirect("/account");
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied=context=>{
+            context.Response.StatusCode=403;
+            return Task.CompletedTask;
+        };
+    });
+builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(options=>{
+    options.RejectionStatusCode=429;
+    options.AddPolicy("account",context=>System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString()??"unknown",
+        _=>new System.Threading.RateLimiting.FixedWindowRateLimiterOptions{
+            PermitLimit=8,Window=TimeSpan.FromMinutes(2),QueueLimit=0,AutoReplenishment=true
+        }));
+});
 builder.Services.AddScoped<EpubReadingService>();
 builder.Services.AddHttpClient("wikisource", client => {
     client.Timeout=TimeSpan.FromSeconds(35);
@@ -18,9 +56,13 @@ builder.Services.AddHttpClient("wikisource", client => {
 builder.Services.AddSingleton<CatalogImporter>();
 builder.Services.AddHostedService<CatalogSeedWorker>();
 builder.Services.AddHostedService<AzerbaijaniBookSeedWorker>();
+Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath,"App_Data","keys"));
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRateLimiter();
 app.UseAntiforgery();
 
 // SQLite and uploaded EPUB files live outside wwwroot and survive IIS redeployments.
@@ -54,6 +96,66 @@ await using (var db = new SqliteConnection(connectionString))
         """;
     await cmd.ExecuteNonQueryAsync();
 }
+
+await app.Services.GetRequiredService<AnkaAccountService>().EnsureCreatedAsync();
+
+static bool SameOrigin(HttpRequest request)
+{
+    var origin=request.Headers.Origin.ToString();
+    if(!string.IsNullOrEmpty(origin)){
+        return Uri.TryCreate(origin,UriKind.Absolute,out var uri) &&
+            uri.Scheme==request.Scheme && uri.Authority.Equals(request.Host.Value,StringComparison.OrdinalIgnoreCase);
+    }
+    return request.Headers["Sec-Fetch-Site"].ToString()=="same-origin";
+}
+app.MapPost("/api/account/register",async (HttpContext context,AnkaAccountService accounts,AnkaCredentials input)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var (ok,error)=await accounts.RegisterAsync(input.Email??"",input.Name??"",input.Password??"");
+    return ok?Results.Ok(new{ok=true}):Results.BadRequest(new{error});
+}).RequireRateLimiting("account");
+app.MapPost("/api/account/login",async (HttpContext context,AnkaAccountService accounts,AnkaCredentials input)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var account=await accounts.AuthenticateAsync(input.Email??"",input.Password??"");
+    if(account is null)return Results.Json(new{error="Invalid credentials."},statusCode:401);
+    var identity=new ClaimsIdentity(new[]{
+        new Claim(ClaimTypes.NameIdentifier,account.Value.Id),
+        new Claim(ClaimTypes.Name,account.Value.Name),
+        new Claim(ClaimTypes.Role,account.Value.Role)
+    },CookieAuthenticationDefaults.AuthenticationScheme);
+    await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,new ClaimsPrincipal(identity));
+    return Results.Ok(new{ok=true,role=account.Value.Role});
+}).RequireRateLimiting("account");
+app.MapPost("/api/account/logout",async (HttpContext context)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    await context.SignOutAsync();
+    return Results.Ok(new{ok=true});
+}).RequireAuthorization();
+app.MapGet("/api/account/me",(ClaimsPrincipal user)=>Results.Ok(new{
+    authenticated=user.Identity?.IsAuthenticated==true,
+    name=user.Identity?.Name,
+    role=user.FindFirst(ClaimTypes.Role)?.Value
+}));
+app.MapPost("/api/account/publisher",async (HttpContext context,AnkaAccountService accounts)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var expected=Environment.GetEnvironmentVariable("ANKA_PUBLISHER_SETUP_KEY");
+    if(string.IsNullOrWhiteSpace(expected)||expected.Length<32)return Results.StatusCode(503);
+    var provided=context.Request.Headers["X-Anka-Setup-Key"].ToString();
+    if(provided.Length!=expected.Length || !CryptographicOperations.FixedTimeEquals(
+        System.Text.Encoding.UTF8.GetBytes(provided),System.Text.Encoding.UTF8.GetBytes(expected)))return Results.StatusCode(403);
+    var id=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    return id is not null && await accounts.MakePublisherAsync(id)?Results.Ok(new{ok=true}):Results.BadRequest();
+}).RequireAuthorization().RequireRateLimiting("account");
+app.MapGet("/api/me/shelf",async (ClaimsPrincipal user,AnkaAccountService accounts)=>{
+    var id=user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    return id is null?Results.Unauthorized():Results.Ok(await accounts.ShelfAsync(id));
+}).RequireAuthorization();
+app.MapPost("/api/me/shelf/{bookId:guid}",async (Guid bookId,HttpContext context,AnkaAccountService accounts)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var id=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(id is null)return Results.Unauthorized();
+    await accounts.AddToShelfAsync(id,bookId.ToString());
+    return Results.Ok(new{ok=true});
+}).RequireAuthorization();
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", app = "Anka", framework = "Blazor Server" }));
 app.MapGet("/api/catalog/status", async () =>
 {
@@ -106,6 +208,7 @@ app.MapGet("/api/books/{id:guid}/file", async (Guid id) =>
 });
 app.MapPost("/api/books", async (HttpRequest request) =>
 {
+    if (!SameOrigin(request)) return Results.StatusCode(403);
     if (!request.HasFormContentType) return Results.BadRequest(new { error = "multipart/form-data required" });
     var form = await request.ReadFormAsync();
     var file = form.Files.GetFile("file");
@@ -160,8 +263,9 @@ app.MapPost("/api/books", async (HttpRequest request) =>
     catch (InvalidDataException e) { File.Delete(path); return Results.BadRequest(new { error = e.Message }); }
     catch (System.Xml.XmlException) { File.Delete(path); return Results.BadRequest(new { error = "Malformed EPUB XML." }); }
     catch { File.Delete(path); throw; }
-}).DisableAntiforgery();
+}).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin")).DisableAntiforgery();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 app.Run();
 
+public record AnkaCredentials(string? Email,string? Password,string? Name);
 public record BookListItem(string Id, string Title, string Author, string Language, string Script, long Bytes);
