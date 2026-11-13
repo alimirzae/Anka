@@ -13,6 +13,9 @@ public sealed class UiText
     private static readonly Dictionary<string, string[]> Messages = new(StringComparer.OrdinalIgnoreCase)
     {
         // Persian, Turkish, Azerbaijani Latin, Azerbaijani Arabic
+        ["bookSize"] = ["حجم فایل", "Dosya boyutu", "Fayl ölçüsü", "فایل اؤلچوسو"],
+        ["saveToShelf"] = ["افزودن به کتابخانه من", "Kitaplığıma ekle", "Kitabxanama əlavə et", "کیتابخاناما آرتیر"],
+        ["shelfSaved"] = ["به کتابخانه شخصی اضافه شد.", "Kitaplığınıza eklendi.", "Kitabxananıza əlavə edildi.", "کیتابخانانیزا آرتیریلدی."],
         ["accountTitle"] = ["حساب کاربری آنکا", "ANKA hesabı", "ANKA hesabı", "آنکا حسابی"],
         ["accountHelp"] = ["برای ذخیره کتابخانه و مدیریت مطالعه وارد شوید.", "Kitaplığınızı kaydetmek için giriş yapın.", "Kitabxananızı saxlamaq üçün daxil olun.", "کیتابخانانیزی ساخلاماق اوچون گیریش ائدین."],
         ["signIn"] = ["ورود", "Giriş", "Daxil ol", "گیریش"],
@@ -143,6 +146,9 @@ public sealed class UiText
 
     private static readonly Dictionary<string, string> English = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["bookSize"] = "File size",
+        ["saveToShelf"] = "Add to my library",
+        ["shelfSaved"] = "Added to your personal library.",
         ["accountTitle"] = "Your ANKA account",
         ["accountHelp"] = "Sign in to keep your personal library.",
         ["signIn"] = "Sign in",
