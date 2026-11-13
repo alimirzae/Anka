@@ -29,6 +29,15 @@
    }
   </section>
   <section class="moderation-list">
+   <h2>@L.T("editionLinkTitle")</h2>
+   <p>@L.T("editionLinkHelp")</p>
+   <div class="market-filters">
+    <label>@L.T("editionBookId")<input @bind="editionBook" placeholder="Book GUID" /></label>
+    <label>@L.T("editionWorkId")<input @bind="editionWork" placeholder="Base work GUID" /></label>
+    <button class="btn btn-dark" @onclick="LinkEdition" disabled="@busy">@L.T("editionLinkAction")</button>
+   </div>
+  </section>
+  <section class="moderation-list">
    <h2>@L.T("pendingBooks")</h2>
    @if(submissions.Count==0){<p>@L.T("nothingPending")</p>}
    @foreach(var book in submissions){
@@ -49,6 +58,7 @@
 @code{
  private bool loaded,allowed,busy;
  private string? message;
+ private string editionBook="",editionWork="";
  private List<PublisherRequest> publishers=new();
  private List<BookSubmission> submissions=new();
  protected override void OnInitialized()=>L.Changed+=Refresh;
@@ -76,6 +86,15 @@
    var result=await Js.InvokeAsync<OperationResult>("ankaAccount.reviewPublisher",id,approve);
    message=result.Ok?L.T("reviewSaved"):L.T("accountError");
    await Load();
+  }catch(JSException){message=L.T("accountError");}
+  finally{busy=false;}
+ }
+ private async Task LinkEdition(){
+  busy=true;
+  try{
+   if(!Guid.TryParse(editionBook,out _)||!Guid.TryParse(editionWork,out _)){message=L.T("editionInvalidId");return;}
+   var result=await Js.InvokeAsync<OperationResult>("ankaAccount.linkEdition",editionBook,editionWork);
+   message=result.Ok?L.T("reviewSaved"):L.T("accountError");
   }catch(JSException){message=L.T("accountError");}
   finally{busy=false;}
  }
