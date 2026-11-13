@@ -315,6 +315,8 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
           JOIN anka_editions e ON e.work_id=current.work_id
           JOIN books b ON b.id=e.book_id
           WHERE current.book_id=@id AND
+            NOT EXISTS(SELECT 1 FROM anka_book_moderation source_m
+              WHERE source_m.book_id=current.book_id AND source_m.state!='approved') AND
             NOT EXISTS(SELECT 1 FROM anka_book_moderation m
               WHERE m.book_id=b.id AND m.state!='approved')
           ORDER BY CASE e.language WHEN 'az-Arab' THEN 0 WHEN 'tr' THEN 1 WHEN 'az-Latn' THEN 2 ELSE 3 END
