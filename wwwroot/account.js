@@ -25,6 +25,17 @@
    return {authenticated:true,books:books.filter(b=>keys.has(b.id))};
   },
   async addShelf(bookId){const r=await fetch("/api/me/shelf/"+encodeURIComponent(bookId),{method:"POST",credentials:"same-origin"});return {ok:r.ok,status:r.status};},
+  requestPublisher:(statement)=>post("/api/publisher/request",{statement}),
+  async getPublisherRequests(){
+    const r=await fetch("/api/admin/publishers",{credentials:"same-origin"});
+    return {ok:r.ok,items:r.ok?await r.json():[]};
+  },
+  async getBookSubmissions(){
+    const r=await fetch("/api/admin/submissions",{credentials:"same-origin"});
+    return {ok:r.ok,items:r.ok?await r.json():[]};
+  },
+  reviewPublisher:(id,approve)=>post("/api/admin/publishers/"+encodeURIComponent(id)+"/review",{approve}),
+  reviewBook:(id,approve)=>post("/api/admin/submissions/"+encodeURIComponent(id)+"/review",{approve}),
   async me(){const r=await fetch("/api/account/me",{credentials:"same-origin"});return r.ok?await r.json():{authenticated:false};}
  };
 })();
