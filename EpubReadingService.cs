@@ -26,8 +26,10 @@ public sealed class EpubReadingService(IWebHostEnvironment environment, ILogger<
         {
             await db.OpenAsync(ct);
             await using var cmd = db.CreateCommand();
-            cmd.CommandText = "SELECT filename,title,author,language FROM books b WHERE id=@id
-                AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')";
+            cmd.CommandText = """
+                SELECT filename,title,author,language FROM books b WHERE id=@id
+                AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')
+                """;
             cmd.Parameters.AddWithValue("@id", id.ToString());
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             if (!await reader.ReadAsync(ct)) throw new FileNotFoundException("Book is not in the library.");
