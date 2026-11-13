@@ -24,6 +24,21 @@
   <option value="tr">Türkçe</option>
   <option value="en">English</option>
  </select>
+ <label for="bookCategory">@L.T("bookCategory")</label>
+ <select id="bookCategory" @bind="category">
+  <option value="Literature">@L.T("categoryLiterature")</option>
+  <option value="Poetry">@L.T("categoryPoetry")</option>
+  <option value="History">@L.T("categoryHistory")</option>
+  <option value="Children">@L.T("categoryChildren")</option>
+  <option value="Science">@L.T("categoryScience")</option>
+  <option value="General">@L.T("categoryGeneral")</option>
+ </select>
+ <label for="bookDescription">@L.T("bookDescription")</label>
+ <textarea id="bookDescription" @bind="description" maxlength="2000" rows="3"></textarea>
+ <label for="bookTranslator">@L.T("bookTranslator")</label>
+ <input id="bookTranslator" @bind="translator" maxlength="150" />
+ <label for="publisherName">@L.T("bookPublisher")</label>
+ <input id="publisherName" @bind="publisherName" maxlength="150" />
  <label for="rightsDeclaration">@L.T("rightsDeclaration")</label>
  <textarea id="rightsDeclaration" @bind="rights" rows="4" maxlength="2000" placeholder="@L.T("rightsHelp")"></textarea>
  <p class="account-note">@L.T("uploadReviewNotice")</p>
@@ -32,6 +47,7 @@
 </div>
 @code {
  private string title="",author="",language="az-Arab",rights="",status="";
+ private string description="",translator="",publisherName="",category="Literature";
  private bool busy;
  protected override void OnInitialized()=>L.Changed+=Updated;
  private void Updated()=>_=InvokeAsync(StateHasChanged);
@@ -40,7 +56,7 @@
   busy=true;status=L.T("uploading");
   try
   {
-   var result=await Js.InvokeAsync<string>("ankaReader.upload",title,author,language,rights);
+   var result=await Js.InvokeAsync<string>("ankaReader.upload",title,author,language,rights,category,description,translator,publisherName);
    if(result=="ok"){status=L.T("uploadReviewNotice");busy=false;}
    else status=result=="ابتدا یک فایل EPUB انتخاب کنید."?L.T("firstSelect"):L.T("uploadFailed")+": "+result;
   }
