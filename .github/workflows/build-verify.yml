@@ -35,3 +35,25 @@ jobs:
         run: dotnet build Anka.csproj -c Release --no-restore -warnaserror
       - name: Publish package verification
         run: dotnet publish Anka.csproj -c Release --no-build -o ./out
+
+      - name: Smoke-test ANKA startup and API authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          ASPNETCORE_ENVIRONMENT=Production dotnet run --project Anka.csproj -c Release --no-build --no-launch-profile --urls http://127.0.0.1:52639 > /tmp/anka-startup.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          ready=0
+          for i in $(seq 1 35); do
+            if curl -fsS http://127.0.0.1:52639/api/health -o /tmp/anka-health.json; then ready=1; break; fi
+            if ! kill -0 "$pid" 2>/dev/null; then cat /tmp/anka-startup.log; exit 1; fi
+            sleep 1
+          done
+          if [ "$ready" != "1" ]; then cat /tmp/anka-startup.log; exit 1; fi
+          curl -fsS http://127.0.0.1:52639/api/books -o /tmp/anka-books.json
+          upload_status=$(curl -sS -o /tmp/anka-upload.json -w '%{http_code}' -X POST http://127.0.0.1:52639/api/books)
+          if [ "$upload_status" != "401" ]; then echo "Anonymous upload returned $upload_status, expected 401"; exit 1; fi
+          admin_status=$(curl -sS -o /tmp/anka-admin.json -w '%{http_code}' http://127.0.0.1:52639/api/admin/publishers)
+          if [ "$admin_status" != "401" ]; then echo "Anonymous admin request returned $admin_status, expected 401"; exit 1; fi
+          pin_status=$(curl -sS -o /tmp/anka-pin.json -w '%{http_code}' -X POST http://127.0.0.1:52639/api/account/test-login)
+          if [ "$pin_status" != "404" ]; then echo "Production test-PIN route returned $pin_status, expected 404"; exit 1; fi
