@@ -286,10 +286,11 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
             throw new InvalidDataException("Metadata too long.");
         await using var db = new SqliteConnection(connectionString);
         await db.OpenAsync();
+        await using var transaction = (SqliteTransaction)await db.BeginTransactionAsync();
         await using var cmd = new SqliteCommand("""
           INSERT INTO books (id,title,author,language,original_script,filename,bytes,created_utc)
           VALUES (@id,@title,@author,@language,'auto',@file,@bytes,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-        """, db);
+        """, db,transaction);
         cmd.Parameters.AddWithValue("@id", id.ToString());
         cmd.Parameters.AddWithValue("@title", title);
         cmd.Parameters.AddWithValue("@author", author);
@@ -297,7 +298,15 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         cmd.Parameters.AddWithValue("@file", name);
         cmd.Parameters.AddWithValue("@bytes", file.Length);
         await cmd.ExecuteNonQueryAsync();
-        if(!await accounts.RecordBookSubmissionAsync(id.ToString(),uploader,rightsDeclaration))throw new InvalidDataException("Could not register rights declaration.");
+        await using var rightsCmd = new SqliteCommand("""
+          INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,state,created_utc)
+          VALUES(@id,@uploader,@rights,'pending',strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        """,db,transaction);
+        rightsCmd.Parameters.AddWithValue("@id",id.ToString());
+        rightsCmd.Parameters.AddWithValue("@uploader",uploader);
+        rightsCmd.Parameters.AddWithValue("@rights",rightsDeclaration);
+        await rightsCmd.ExecuteNonQueryAsync();
+        await transaction.CommitAsync();
         return Results.Created($"/api/books/{id}/file", new { id, title, state="pending" });
     }
     catch (InvalidDataException e) { File.Delete(path); return Results.BadRequest(new { error = e.Message }); }
