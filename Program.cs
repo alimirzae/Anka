@@ -49,6 +49,7 @@ builder.Services.AddRateLimiter(options=>{
             PermitLimit=8,Window=TimeSpan.FromMinutes(2),QueueLimit=0,AutoReplenishment=true
         }));
 });
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<EpubReadingService>();
 builder.Services.AddHttpClient("wikisource", client => {
     client.Timeout=TimeSpan.FromSeconds(35);
