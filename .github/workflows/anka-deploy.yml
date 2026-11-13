@@ -112,6 +112,27 @@ jobs:
           try {
             $health = Invoke-WebRequest -Uri 'http://localhost/api/health' -Headers @{ Host = $env:IIS_SITE } -UseBasicParsing -TimeoutSec 20
             if ($health.StatusCode -ne 200) { throw "HTTP $($health.StatusCode)" }
+            # Security regression smoke tests against the deployed Production site.
+            # These requests are read-only; do not create users, books or entitlements.
+            $hostHeaders = @{ Host = $env:IIS_SITE }
+            foreach ($probe in @(
+              @{ Path = '/api/account/test-login'; Expected = 404 },
+              @{ Path = '/api/admin/publishers'; Expected = 401 },
+              @{ Path = '/api/admin/submissions'; Expected = 401 }
+            )) {
+              $code = 0
+              try {
+                $response = Invoke-WebRequest -Uri ("http://localhost" + $probe.Path) -Headers $hostHeaders -UseBasicParsing -TimeoutSec 15
+                $code = [int]$response.StatusCode
+              } catch {
+                if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
+                else { throw "Security probe transport error on $($probe.Path): $($_.Exception.Message)" }
+              }
+              if ($code -ne $probe.Expected) {
+                throw "Security regression on $($probe.Path): expected HTTP $($probe.Expected), received $code"
+              }
+              Write-Host "Security probe passed: $($probe.Path) -> HTTP $code"
+            }
             Start-Sleep -Seconds 22
             try {
               $catalog = Invoke-RestMethod -Uri 'http://localhost/api/catalog/status' -Headers @{ Host = $env:IIS_SITE } -TimeoutSec 15
