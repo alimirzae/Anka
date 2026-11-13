@@ -1,0 +1,98 @@
+@page "/admin"
+@implements IDisposable
+@inject UiText L
+@inject IJSRuntime Js
+
+<section class="anka-publisher">
+ <header class="market-intro">
+  <span class="eyebrow">ANKA ADMIN</span>
+  <h1>@L.T("adminReviewTitle")</h1>
+  <p>@L.T("adminReviewHelp")</p>
+ </header>
+ @if(!loaded){<p role="status">@L.T("readerLoading")</p>}
+ else if(!allowed){
+  <div class="publisher-status" role="alert">@L.T("restrictedAdmin")</div>
+ }else{
+  <section class="moderation-list">
+   <h2>@L.T("publisherRequests")</h2>
+   @if(publishers.Count==0){<p>@L.T("nothingPending")</p>}
+   @foreach(var request in publishers){
+    <article class="moderation-entry" @key="request.UserId">
+     <div><strong>@request.Name</strong><small>@request.Email</small><p dir="auto">@request.Statement</p><span>@request.State</span></div>
+     @if(request.State=="pending"){
+      <div class="moderation-actions">
+       <button disabled="@busy" @onclick="()=>ReviewPublisher(request.UserId,true)">@L.T("approve")</button>
+       <button disabled="@busy" @onclick="()=>ReviewPublisher(request.UserId,false)">@L.T("reject")</button>
+      </div>
+     }
+    </article>
+   }
+  </section>
+  <section class="moderation-list">
+   <h2>@L.T("pendingBooks")</h2>
+   @if(submissions.Count==0){<p>@L.T("nothingPending")</p>}
+   @foreach(var book in submissions){
+    <article class="moderation-entry" @key="book.BookId">
+     <div><strong>@book.Title</strong><small>@book.BookId</small><p dir="auto">@book.Rights</p><span>@book.State</span></div>
+     @if(book.State=="pending"){
+      <div class="moderation-actions">
+       <button disabled="@busy" @onclick="()=>ReviewBook(book.BookId,true)">@L.T("approve")</button>
+       <button disabled="@busy" @onclick="()=>ReviewBook(book.BookId,false)">@L.T("reject")</button>
+      </div>
+     }
+    </article>
+   }
+  </section>
+ }
+ @if(message is not null){<p role="status" class="account-message">@message</p>}
+</section>
+@code{
+ private bool loaded,allowed,busy;
+ private string? message;
+ private List<PublisherRequest> publishers=new();
+ private List<BookSubmission> submissions=new();
+ protected override void OnInitialized()=>L.Changed+=Refresh;
+ private void Refresh()=>_=InvokeAsync(StateHasChanged);
+ protected override async Task OnAfterRenderAsync(bool firstRender){
+  if(!firstRender)return;
+  await Load();
+  loaded=true;StateHasChanged();
+ }
+ private async Task Load(){
+  try{
+   var account=await Js.InvokeAsync<AccountState>("ankaAccount.me");
+   allowed=account.Authenticated && account.Role=="Admin";
+   if(!allowed)return;
+   var p=await Js.InvokeAsync<RequestList>("ankaAccount.getPublisherRequests");
+   var b=await Js.InvokeAsync<SubmissionList>("ankaAccount.getBookSubmissions");
+   if(!p.Ok||!b.Ok){allowed=false;return;}
+   publishers=p.Items?.ToList()??new();
+   submissions=b.Items?.ToList()??new();
+  }catch(JSException){allowed=false;}
+ }
+ private async Task ReviewPublisher(string id,bool approve){
+  busy=true;
+  try{
+   var result=await Js.InvokeAsync<OperationResult>("ankaAccount.reviewPublisher",id,approve);
+   message=result.Ok?L.T("reviewSaved"):L.T("accountError");
+   await Load();
+  }catch(JSException){message=L.T("accountError");}
+  finally{busy=false;}
+ }
+ private async Task ReviewBook(string id,bool approve){
+  busy=true;
+  try{
+   var result=await Js.InvokeAsync<OperationResult>("ankaAccount.reviewBook",id,approve);
+   message=result.Ok?L.T("reviewSaved"):L.T("accountError");
+   await Load();
+  }catch(JSException){message=L.T("accountError");}
+  finally{busy=false;}
+ }
+ public void Dispose()=>L.Changed-=Refresh;
+ private sealed class AccountState{public AccountState(){}public bool Authenticated{get;set;}public string? Role{get;set;}}
+ private sealed class OperationResult{public OperationResult(){}public bool Ok{get;set;}}
+ private sealed class RequestList{public RequestList(){}public bool Ok{get;set;}public PublisherRequest[]? Items{get;set;}}
+ private sealed class SubmissionList{public SubmissionList(){}public bool Ok{get;set;}public BookSubmission[]? Items{get;set;}}
+ private sealed class PublisherRequest{public PublisherRequest(){}public string UserId{get;set;}="";public string Name{get;set;}="";public string Email{get;set;}="";public string Statement{get;set;}="";public string State{get;set;}="";}
+ private sealed class BookSubmission{public BookSubmission(){}public string BookId{get;set;}="";public string Title{get;set;}="";public string Rights{get;set;}="";public string State{get;set;}="";}
+}
