@@ -71,6 +71,13 @@ public sealed class UiText
         ["editionWorkId"] = ["شناسه اثر اصلی", "Ana eser kimliği", "Əsas əsər kodu", "اصلی اثر کدو"],
         ["editionLinkAction"] = ["اتصال نسخه", "Sürümü bağla", "Variantı birləşdir", "نسخه‌نی باغلا"],
         ["editionInvalidId"] = ["شناسه واردشده معتبر نیست.", "Kimlik geçerli değil.", "Kod düzgün deyil.", "کد دوغرو دئییل."],
+        ["manualAccessTitle"] = ["دسترسی دستی به کتاب‌ها", "Kitap erişimini elle yönet", "Kitab girişini əl ilə idarə et", "کیتابا دستی ایجازه"],
+        ["manualAccessHelp"] = ["برای کتاب‌های محدود، مدیر می‌تواند دسترسی یک حساب را مستقیم فعال کند.", "Kısıtlı kitaplara yönetici elle erişim verebilir.", "Məhdud kitabları idarəçi əl ilə aça bilər.", "محدود کیتابلارا مدیر دستی ایجازه وئرر."],
+        ["readerEmail"] = ["ایمیل خواننده", "Okuyucu e-postası", "Oxucu e-poçtu", "اوخوجو ایمیلی"],
+        ["grantReason"] = ["توضیح اعطای دسترسی", "Erişim gerekçesi", "Giriş səbəbi", "ایجازه سببی"],
+        ["grantAccess"] = ["اعطای دسترسی", "Erişim ver", "İcazə ver", "ایجازه وئر"],
+        ["restrictedBook"] = ["نیازمند تأیید مدیر", "Yönetici onayı gerekir", "İdarəçi təsdiqi tələb olunur", "مدیر تصویبی لازیم"],
+        ["freeBook"] = ["کتاب رایگان", "Ücretsiz kitap", "Pulsuz kitab", "پولسوز کیتاب"],
         ["storeTitle"] = ["کتابخانه و فروشگاه آنکا", "ANKA kitaplığı ve mağazası", "ANKA kitabxanası və mağazası", "آنکا کیتابخاناسی و ماغازاسی"],
         ["storeSubtitle"] = ["کتاب‌ها را جستجو کنید و نسخه مناسب را برای مطالعه انتخاب کنید.", "Kitapları bulun ve okumak istediğiniz sürümü seçin.", "Kitabları tapın və oxumaq üçün uyğun variantı seçin.", "کیتابلاری تاپین و اوخوماق اوچون اویغون نسخه‌نی سئچین."],
         ["storeEmptyHint"] = ["کتاب‌های کامل پس از واردسازی در این بخش نمایش داده می‌شوند.", "İçe aktarılan kitaplar burada görünür.", "Daxil edilən kitablar burada görünəcək.", "یوکلنن کیتابلار بورادا گؤرونجک."],
@@ -189,6 +196,13 @@ public sealed class UiText
 
     private static readonly Dictionary<string, string> English = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["manualAccessTitle"] = "Manual book access",
+        ["manualAccessHelp"] = "Administrators can grant access to restricted books without an online payment.",
+        ["readerEmail"] = "Reader email",
+        ["grantReason"] = "Reason for access",
+        ["grantAccess"] = "Grant access",
+        ["restrictedBook"] = "Require manual access",
+        ["freeBook"] = "Make book free",
         ["editionLinkTitle"] = "Link language editions",
         ["editionLinkHelp"] = "Enter the edition ID and the main work ID.",
         ["editionBookId"] = "Edition ID",
