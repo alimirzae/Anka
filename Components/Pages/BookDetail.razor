@@ -1,0 +1,70 @@
+@page "/store/book/{Id:guid}"
+@implements IDisposable
+@inject UiText L
+@inject IWebHostEnvironment HostEnvironment
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
+
+<div class="market-detail">
+ <a href="/store" class="reader-return">← @L.T("storeNav")</a>
+ @if(book is null){
+  <section class="library-empty"><strong>@L.T("fileMissing")</strong></section>
+ }else{
+  <section class="market-detail-layout">
+   <div class="market-detail-cover" dir="auto">
+    <span>ANKA COLLECTION</span>
+    <strong>@book.Title</strong>
+    <small>@book.Author</small>
+   </div>
+   <div class="market-detail-info">
+    <span class="market-language">@LanguageName(book.Language)</span>
+    <h1 dir="auto">@book.Title</h1>
+    <p dir="auto">@book.Author</p>
+    <dl>
+     <dt>@L.T("languageOfBook")</dt><dd>@LanguageName(book.Language)</dd>
+     <dt>@L.T("file")</dt><dd>EPUB</dd>
+     <dt>@L.T("bookSize")</dt><dd>@(Math.Round(book.Bytes/1024.0)) KB</dd>
+    </dl>
+    <p class="market-note">@L.T("storeRightsNotice")</p>
+    <div class="market-detail-actions">
+     <button class="btn btn-dark" @onclick="ReadBook">@L.T("startReading")</button>
+     <button class="btn btn-outline" @onclick="SaveToShelf">@L.T("saveToShelf")</button>
+    </div>
+    @if(status is not null){<p role="status" class="account-message">@status</p>}
+   </div>
+  </section>
+ }
+</div>
+@code {
+ [Parameter] public Guid Id {get;set;}
+ private BookListItem? book;
+ private string? status;
+ protected override void OnInitialized()=>L.Changed+=Refresh;
+ private void Refresh()=>_=InvokeAsync(StateHasChanged);
+ protected override async Task OnParametersSetAsync(){
+  await using var db=new Microsoft.Data.Sqlite.SqliteConnection(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{
+   DataSource=Path.Combine(HostEnvironment.ContentRootPath,"App_Data","anka.db"),
+   Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite}.ToString());
+  try{
+   await db.OpenAsync();
+   await using var cmd=db.CreateCommand();
+   cmd.CommandText="SELECT id,title,author,language,original_script,bytes FROM books WHERE id=@id";
+   cmd.Parameters.AddWithValue("@id",Id.ToString());
+   await using var r=await cmd.ExecuteReaderAsync();
+   if(await r.ReadAsync())book=new BookListItem(r.GetString(0),r.GetString(1),r.GetString(2),r.GetString(3),r.GetString(4),r.GetInt64(5));
+  }catch(Microsoft.Data.Sqlite.SqliteException){book=null;}
+ }
+ private static string LanguageName(string lang)=>lang switch{
+  "az-Arab"=>"تورکجه","az-Latn" or "az"=>"Az.Turkce","tr"=>"Türkçe","fa"=>"فارسی","en"=>"English",_=>lang};
+ private void ReadBook()=>Navigation.NavigateTo("/read/"+Id);
+ private async Task SaveToShelf(){
+  try{
+   var result=await Js.InvokeAsync<SaveResult>("ankaAccount.addShelf",Id.ToString());
+   if(result.Ok)status=L.T("shelfSaved");
+   else if(result.Status==401)Navigation.NavigateTo("/account");
+   else status=L.T("accountError");
+  }catch(JSException){status=L.T("accountError");}
+ }
+ public void Dispose()=>L.Changed-=Refresh;
+ private sealed class SaveResult{public SaveResult(){}public bool Ok{get;set;}public int Status{get;set;}}
+}
