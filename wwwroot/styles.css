@@ -236,3 +236,24 @@ body.dark .reader-chapters-list button.current{background:#24466c}
 .market-detail-info dt{color:var(--muted)}.market-detail-info dd{margin:0}
 .market-detail-actions{display:flex;flex-wrap:wrap;gap:10px}
 @media(max-width:690px){.market-detail-layout{grid-template-columns:1fr;gap:15px}.market-detail-cover{width:190px;margin:0 auto}.market-detail-info{padding:15px}}
+
+
+/* ANKA publisher review and multi-edition UI */
+.moderation-list{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;margin:15px 0}
+.moderation-list h2{font-size:17px;margin:0 0 12px}
+.moderation-entry{border:1px solid var(--line);border-radius:11px;padding:13px;display:flex;align-items:center;gap:15px;justify-content:space-between;margin-bottom:9px}
+.moderation-entry strong,.moderation-entry small{display:block}.moderation-entry small{font-size:11px;color:var(--muted)}
+.moderation-entry p{font-size:12px;margin:6px 0;overflow-wrap:anywhere}.moderation-entry span{font-size:11px;color:var(--muted)}
+.moderation-actions{display:flex;gap:7px;flex-shrink:0}
+.moderation-actions button{border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:8px 12px;border-radius:8px}
+.moderation-actions button:first-child{background:var(--accent);color:white}
+.moderation-actions button:disabled{opacity:.45}
+.publisher-application-label{display:block;font-size:12px;margin:15px 0 5px}
+.publisher-application-input{width:100%;max-width:800px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--paper);color:var(--ink);display:block;margin-bottom:12px}
+.form textarea{border:1px solid var(--line);padding:12px;border-radius:9px;color:var(--ink);background:var(--paper);font:inherit;resize:vertical}
+.market-editions{margin:15px 0;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.market-editions>strong{flex-basis:100%;font-size:13px}
+.market-editions a{border:1px solid var(--line);padding:7px 12px;border-radius:9px;font-size:13px;display:flex;gap:5px;align-items:center;flex-direction:column}
+.market-editions a.current{background:var(--shade);border-color:var(--accent)}
+.market-editions a small{color:var(--muted);font-size:10px}
+@media(max-width:690px){.moderation-entry{flex-direction:column;align-items:stretch}.moderation-actions{flex-wrap:wrap}}
