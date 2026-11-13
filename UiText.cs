@@ -13,6 +13,23 @@ public sealed class UiText
     private static readonly Dictionary<string, string[]> Messages = new(StringComparer.OrdinalIgnoreCase)
     {
         // Persian, Turkish, Azerbaijani Latin, Azerbaijani Arabic
+        ["storeTitle"] = ["کتابخانه و فروشگاه آنکا", "ANKA kitaplığı ve mağazası", "ANKA kitabxanası və mağazası", "آنکا کیتابخاناسی و ماغازاسی"],
+        ["storeSubtitle"] = ["کتاب‌ها را جستجو کنید و نسخه مناسب را برای مطالعه انتخاب کنید.", "Kitapları bulun ve okumak istediğiniz sürümü seçin.", "Kitabları tapın və oxumaq üçün uyğun variantı seçin.", "کیتابلاری تاپین و اوخوماق اوچون اویغون نسخه‌نی سئچین."],
+        ["storeEmptyHint"] = ["کتاب‌های کامل پس از واردسازی در این بخش نمایش داده می‌شوند.", "İçe aktarılan kitaplar burada görünür.", "Daxil edilən kitablar burada görünəcək.", "یوکلنن کیتابلار بورادا گؤرونجک."],
+        ["searchNoResult"] = ["کتابی با این مشخصات یافت نشد.", "Bu ölçütlere uyan kitap yok.", "Bu meyarlara uyğun kitab tapılmadı.", "بو شرتلره اویغون کیتاب تاپیلمادی."],
+        ["storeRightsNotice"] = ["در مرحله آزمایشی، خرید کتاب فعال نیست؛ فقط محتوای دارای مجوز باید منتشر شود.", "Deneme aşamasında satış etkin değildir; yalnızca lisanslı içerikler yayımlanmalıdır.", "Sınaq mərhələsində satış aktiv deyil; yalnız icazəli məzmun yayımlana bilər.", "سیناق مرحله‌سینده ساتیش فعال دئییل؛ یالنیز ایجازه‌لی متن یاییم‌لانمالیدیر."],
+        ["publisherTitle"] = ["پنل ناشران آنکا", "ANKA yayıncı paneli", "ANKA nəşriyyat paneli", "آنکا ناشیرلر پانئلی"],
+        ["publisherSubtitle"] = ["مدیریت کتاب، نسخه‌های زبانی و حقوق انتشار در یک محیط ساده.", "Kitap, dil sürümleri ve yayın haklarını tek yerde yönetin.", "Kitabları, dil variantlarını və nəşr hüquqlarını bir yerdə idarə edin.", "کیتابلاری، دیل نسخه‌لرینی و نشر حوقوقلارینی بیر یئرده ایداره ائدین."],
+        ["publisherStep1"] = ["ثبت ناشر و مجوز", "Yayıncı ve hak doğrulama", "Nəşriyyat və hüquq təsdiqi", "ناشیر و نشر ایجازه‌سی"],
+        ["publisherStep1Detail"] = ["تأیید هویت ناشر و حق انتشار اثر", "Yayıncı kimliği ve yayın hakları", "Nəşriyyat şəxsiyyəti və nəşr hüquqları", "ناشیر کیملیگی و نشر حوقوقلاری"],
+        ["publisherStep2"] = ["ثبت کتاب و نسخه‌ها", "Kitap ve sürümleri ekleme", "Kitab və variantların əlavə edilməsi", "کیتاب و نسخه‌لری آرتیرماق"],
+        ["publisherStep2Detail"] = ["EPUB، جلد، نویسنده و نسخه‌های تورکجه، Türkçe و Az.Turkce", "EPUB, kapak, yazar ve farklı dil sürümleri", "EPUB, üz qabığı, müəllif və dil variantları", "EPUB، جلد، یازار و دیل نسخه‌لری"],
+        ["publisherStep3"] = ["بررسی و انتشار", "İnceleme ve yayımlama", "Yoxlama və nəşr", "یوخلاما و نشر"],
+        ["publisherStep3Detail"] = ["بازبینی محتوا، وضعیت ترجمه و انتشار با مجوز", "İçerik, çeviri ve lisans kontrolü", "Məzmun, tərcümə və lisenziya yoxlanışı", "متن، ترجمه و لایسنس یوخلاماسی"],
+        ["publisherRestricted"] = ["دسترسی پنل ناشر هنوز فعال نشده است", "Yayıncı paneli henüz açılmadı", "Nəşriyyat paneli hələ açılmayıb", "ناشیر پانئلی هله آچیل‌ماییب"],
+        ["publisherRestrictedDetail"] = ["پیش از فعال‌سازی آپلود ناشران، احراز هویت و کنترل حقوق انتشار باید تکمیل شود.", "Yayıncı yüklemesi açılmadan önce kimlik doğrulama ve yayın izinleri tamamlanmalıdır.", "Nəşriyyat yükləməsindən əvvəl giriş və nəşr hüquqları təsdiqlənməlidir.", "ناشیر یوکله‌مه‌سی آچیلمادان اؤنجه کیملیک و نشر ایجازه‌سی یوخلانمالیدیر."],
+        ["storeNav"] = ["فروشگاه", "Mağaza", "Mağaza", "ماغازا"],
+        ["publisherNav"] = ["ناشران", "Yayıncılar", "Nəşriyyatlar", "ناشیرلر"],
         ["contents"] = ["فهرست مطالب", "İçindekiler", "Mündəricat", "موندریجات"],
         ["bookmark"] = ["نشانک", "Yer imi", "Əlfəcin", "علامت"],
         ["highlight"] = ["هایلایت متن انتخابی", "Seçimi vurgula", "Seçiləni işarələ", "سئچیلمیش متنی ایشاره‌له"],
