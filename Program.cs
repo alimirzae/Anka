@@ -75,7 +75,8 @@ app.Use(async (context, next) =>
         // Prevent intermediary and browser caches from retaining these responses.
         if (context.Request.Path.StartsWithSegments("/api/account") ||
             context.Request.Path.StartsWithSegments("/api/admin") ||
-            context.Request.Path.StartsWithSegments("/api/publisher"))
+            context.Request.Path.StartsWithSegments("/api/publisher") ||
+            context.Request.Path.StartsWithSegments("/api/me"))
         {
             context.Response.Headers["Cache-Control"] = "no-store";
             context.Response.Headers["Pragma"] = "no-cache";
