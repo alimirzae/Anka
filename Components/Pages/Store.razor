@@ -64,7 +64,7 @@
     DataSource=file,Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite}.ToString());
    await db.OpenAsync();
    await using var cmd=db.CreateCommand();
-   cmd.CommandText="SELECT id,title,author,language,original_script,bytes FROM books ORDER BY created_utc DESC";
+   cmd.CommandText="SELECT id,title,author,language,original_script,bytes FROM books b WHERE NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved') ORDER BY created_utc DESC";
    await using var cursor=await cmd.ExecuteReaderAsync();
    while(await cursor.ReadAsync())books.Add(new BookListItem(cursor.GetString(0),cursor.GetString(1),cursor.GetString(2),cursor.GetString(3),cursor.GetString(4),cursor.GetInt64(5)));
   }catch(Exception){error=L.T("readerError");}
