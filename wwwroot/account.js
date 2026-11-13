@@ -46,6 +46,8 @@
   reviewPublisher:(id,approve)=>post("/api/admin/publishers/"+encodeURIComponent(id)+"/review",{approve}),
   reviewBook:(id,approve)=>post("/api/admin/submissions/"+encodeURIComponent(id)+"/review",{approve}),
   linkEdition:(id,workId)=>post("/api/admin/editions/"+encodeURIComponent(id)+"/link",{workId}),
+  setBookManual:(id,manual)=>post("/api/admin/books/"+encodeURIComponent(id)+"/access",{manual}),
+  grantBook:(id,email,reason)=>post("/api/admin/books/"+encodeURIComponent(id)+"/grant",{email,reason}),
   async me(){const r=await fetch("/api/account/me",{credentials:"same-origin"});return r.ok?await r.json():{authenticated:false};}
  };
 })();
