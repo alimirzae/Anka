@@ -234,6 +234,22 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         while(await r.ReadAsync())result.Add(new(r.GetString(0),r.GetString(1),r.GetString(2),r.GetString(3)));
         return result;
     }
+    public async Task<IReadOnlyList<AnkaSubmission>> MyBookSubmissionsAsync(string userId)
+    {
+        var result=new List<AnkaSubmission>();
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+          SELECT m.book_id,b.title,m.rights_statement,m.state
+          FROM anka_book_moderation m JOIN books b ON b.id=m.book_id
+          WHERE m.uploader_id=@user
+          ORDER BY m.created_utc DESC
+          """;
+        cmd.Parameters.AddWithValue("@user",userId);
+        await using var r=await cmd.ExecuteReaderAsync();
+        while(await r.ReadAsync())result.Add(new(r.GetString(0),r.GetString(1),r.GetString(2),r.GetString(3)));
+        return result;
+    }
     public async Task<bool> ReviewBookAsync(string bookId,string reviewerId,bool approve)
     {
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
