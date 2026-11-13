@@ -41,6 +41,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddRateLimiter(options=>{
     options.RejectionStatusCode=429;
     options.AddPolicy("account",context=>System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
