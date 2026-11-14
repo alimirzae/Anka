@@ -291,11 +291,12 @@ app.MapGet("/api/catalog/status", async () =>
 });
 app.MapGet("/api/books/{id:guid}/reading-status", async (Guid id, HttpContext context, AnkaAccountService accounts, EpubReadingService reader) =>
 {
-    // Reader diagnostics must enforce the same entitlement as EPUB delivery.
-    // Otherwise private/pending titles and extracted chapter metadata can leak.
+    // Reader diagnostics may contain private EPUB metadata. Apply cache protection
+    // before authorization so denied responses cannot be stored either.
+    context.Response.Headers["Cache-Control"] = "private, no-store";
+    context.Response.Headers["Pragma"] = "no-cache";
     if (!await accounts.CanReadAsync(context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, id.ToString()))
         return Results.StatusCode(403);
-    context.Response.Headers["Cache-Control"] = "no-store";
     try
     {
         var book=await reader.OpenAsync(id);
