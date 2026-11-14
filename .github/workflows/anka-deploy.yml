@@ -13,6 +13,8 @@ on:
       - 'wwwroot/**'
       - 'Components/**'
       - '**/*.json'
+      - 'scripts/backup-anka.py'
+      - 'tests/test_backup_anka.py'
       - '.github/workflows/anka-deploy.yml'
 
 permissions:
@@ -76,6 +78,17 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Tests failed: $($testProject.FullName)" }
           }
           if ($tests.Count -eq 0) { Write-Host 'No *Tests.csproj found. Build passed, but there are no automated tests yet.' }
+
+      - name: Set up Python for isolated backup tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Test SQLite backup safety using temporary fixtures
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m unittest discover -s tests -p 'test_backup_anka.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "SQLite backup safety tests failed: $LASTEXITCODE" }
 
       - name: Publish into staging directory
         run: |
