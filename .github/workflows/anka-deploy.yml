@@ -59,10 +59,14 @@ jobs:
           dotnet --info
 
       - name: Restore
-        run: dotnet restore "${{ steps.discover.outputs.project }}"
+        run: |
+          dotnet restore "${{ steps.discover.outputs.project }}"
+          if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed with exit code $LASTEXITCODE" }
 
       - name: Build
-        run: dotnet build "${{ steps.discover.outputs.project }}" --configuration Release --no-restore
+        run: |
+          dotnet build "${{ steps.discover.outputs.project }}" --configuration Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "dotnet build failed with exit code $LASTEXITCODE" }
 
       - name: Test
         run: |
