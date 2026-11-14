@@ -92,19 +92,23 @@ jobs:
               throw "Publish output contains protected directory: $protectedDirectory"
             }
           }
-          # Include SQLite sidecars, private keys and nested persistent directories.
-          # A clean build artifact must never carry live data or credentials.
+          # Reject nested persistent folders and SQLite sidecars from staging.
           $protectedNames = @('App_Data', 'data', 'uploads')
           $nestedProtected = @(Get-ChildItem -LiteralPath $staging -Recurse -Directory |
             Where-Object { $_.Name -in $protectedNames })
-          if ($nestedProtected.Count -gt 0) {
-            throw "Publish output contains nested persistent directory: $($nestedProtected[0].FullName)"
-          }
+          if ($nestedProtected.Count -gt 0) { throw 'Publish output contains persistent folders.' }
           $sensitiveExtensions = @('.db', '.sqlite', '.sqlite3', '.epub', '.pfx', '.p12', '.pem', '.key')
           $sensitiveFiles = @(Get-ChildItem -LiteralPath $staging -Recurse -File |
             Where-Object {
+              $fileName = $_.Name.ToLowerInvariant()
               $_.Extension -in $sensitiveExtensions -or
-              $_.Name -match '(?i)\\.(db|sqlite|sqlite3)-(wal|shm|journal)
+              $fileName.EndsWith('.db-wal') -or $fileName.EndsWith('.db-shm') -or
+              $fileName.EndsWith('.db-journal') -or
+              $fileName.EndsWith('.sqlite-wal') -or $fileName.EndsWith('.sqlite-shm') -or
+              $fileName.EndsWith('.sqlite3-wal') -or $fileName.EndsWith('.sqlite3-shm') -or
+              $fileName -eq 'appsettings.development.json'
+            })
+          if ($sensitiveFiles.Count -gt 0) { throw 'Publish output contains protected data or credentials.' }
 
       - name: Prepare persistent SQLite storage
         run: |
