@@ -65,6 +65,26 @@ class BackupTests(unittest.TestCase):
         self.assertEqual(epub.read_bytes(), payload)
         self.assertFalse((backup / "epubs").exists())
 
+    def test_online_backup_includes_uncheckpointed_wal_transactions(self):
+        db = self.create_db()
+        writer = sqlite3.connect(db, timeout=30)
+        try:
+            self.assertEqual(writer.execute("PRAGMA journal_mode=WAL").fetchone()[0].lower(), "wal")
+            writer.execute("PRAGMA wal_autocheckpoint=0")
+            writer.execute("INSERT INTO books VALUES (?)", ("WAL-only edition",))
+            writer.commit()
+            self.assertTrue(Path(str(db) + "-wal").exists())
+            result = self.run_backup()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            backups = list(self.output.glob("anka-*"))
+            self.assertEqual(len(backups), 1)
+            with sqlite3.connect(backups[0] / "anka.db") as restored:
+                titles = {row[0] for row in restored.execute("SELECT title FROM books")}
+                self.assertEqual(titles, {"Original EPUB", "WAL-only edition"})
+                self.assertEqual(restored.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+        finally:
+            writer.close()
+
     def test_missing_database_is_rejected_without_creating_one(self):
         result = self.run_backup()
         self.assertNotEqual(result.returncode, 0)
