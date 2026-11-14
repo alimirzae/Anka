@@ -142,6 +142,22 @@ jobs:
               }
               Write-Host "Security probe passed: $($probe.Path) -> HTTP $code"
             }
+            # The test-login endpoint is POST-only in Development. A GET 404 alone
+            # cannot prove that its POST handler is absent from Production.
+            # Use an invalid fixture account; this probe must never create or log in a user.
+            $testLoginUrl = 'http://localhost/api/account/test-login'
+            $testLoginStatus = 0
+            try {
+              $testLoginResponse = Invoke-WebRequest -Uri $testLoginUrl -Method Post -Headers $hostHeaders -ContentType 'application/json' -Body '{"email":"nonexistent-anka-security-probe@example.invalid","pin":"1234"}' -UseBasicParsing -TimeoutSec 15
+              $testLoginStatus = [int]$testLoginResponse.StatusCode
+            } catch {
+              if ($_.Exception.Response) { $testLoginStatus = [int]$_.Exception.Response.StatusCode }
+              else { throw "Test-login POST probe transport error: $($_.Exception.Message)" }
+            }
+            if ($testLoginStatus -ne 404) {
+              throw "Production test-login POST must not exist: expected HTTP 404, received $testLoginStatus"
+            }
+            Write-Host 'Production test-login POST route is absent (HTTP 404).'
             # Verify that even a denied EPUB response cannot be stored by shared caches.
             $epubProbe = '/api/books/00000000-0000-0000-0000-000000000000/file'
             try {
