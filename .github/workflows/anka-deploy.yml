@@ -215,6 +215,25 @@ jobs:
               throw "Anonymous same-origin book upload must be rejected with HTTP 401 or 403, received $uploadStatus"
             }
             Write-Host "Anonymous same-origin publisher upload rejected (HTTP $uploadStatus)."
+            # Anonymous moderation writes must not reach publisher/book approval logic.
+            # Impossible GUIDs ensure the probes cannot modify real submissions.
+            foreach ($moderationPath in @(
+              '/api/admin/publishers/00000000-0000-0000-0000-000000000000/review',
+              '/api/admin/submissions/00000000-0000-0000-0000-000000000000/review'
+            )) {
+              $moderationStatus = 0
+              try {
+                $moderationResponse = Invoke-WebRequest -Uri ('http://localhost' + $moderationPath) -Method Post -Headers @{ Host = $env:IIS_SITE; 'Sec-Fetch-Site' = 'same-origin' } -ContentType 'application/json' -Body '{"approve":true}' -UseBasicParsing -TimeoutSec 15
+                $moderationStatus = [int]$moderationResponse.StatusCode
+              } catch {
+                if ($_.Exception.Response) { $moderationStatus = [int]$_.Exception.Response.StatusCode }
+                else { throw "Moderation authorization probe transport error: $($_.Exception.Message)" }
+              }
+              if ($moderationStatus -notin @(401, 403)) {
+                throw "Anonymous moderation write not rejected on $moderationPath (HTTP $moderationStatus)"
+              }
+              Write-Host "Anonymous moderation write rejected: $moderationPath (HTTP $moderationStatus)"
+            }
             # The test-login endpoint is POST-only in Development. A GET 404 alone
             # cannot prove that its POST handler is absent from Production.
             # Use an invalid fixture account; this probe must never create or log in a user.
