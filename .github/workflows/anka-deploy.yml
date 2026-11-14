@@ -142,6 +142,20 @@ jobs:
               }
               Write-Host "Security probe passed: $($probe.Path) -> HTTP $code"
             }
+            # A same-origin anonymous upload must be rejected before any form parsing,
+            # file write, or publisher submission is attempted.
+            $uploadStatus = 0
+            try {
+              $uploadResponse = Invoke-WebRequest -Uri 'http://localhost/api/books' -Method Post -Headers @{ Host = $env:IIS_SITE; 'Sec-Fetch-Site' = 'same-origin' } -ContentType 'application/json' -Body '{}' -UseBasicParsing -TimeoutSec 15
+              $uploadStatus = [int]$uploadResponse.StatusCode
+            } catch {
+              if ($_.Exception.Response) { $uploadStatus = [int]$_.Exception.Response.StatusCode }
+              else { throw "Anonymous upload probe transport error: $($_.Exception.Message)" }
+            }
+            if ($uploadStatus -ne 403) {
+              throw "Anonymous same-origin book upload must be forbidden: expected HTTP 403, received $uploadStatus"
+            }
+            Write-Host 'Anonymous same-origin publisher upload rejected (HTTP 403).'
             # The test-login endpoint is POST-only in Development. A GET 404 alone
             # cannot prove that its POST handler is absent from Production.
             # Use an invalid fixture account; this probe must never create or log in a user.
