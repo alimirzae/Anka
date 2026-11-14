@@ -108,6 +108,14 @@ jobs:
               Where-Object { $_.Extension -in @('.db', '.sqlite', '.sqlite3', '.epub') } |
               Select-Object -ExpandProperty FullName)
           }
+          # Record hashes of immutable EPUB assets. SQLite files are intentionally not
+          # hashed: legitimate concurrent database writes can change their contents.
+          $epubHashesBefore = @{}
+          foreach ($item in $persistentBefore) {
+            if ([IO.Path]::GetExtension($item) -ieq '.epub') {
+              $epubHashesBefore[$item] = (Get-FileHash -LiteralPath $item -Algorithm SHA256).Hash
+            }
+          }
           $appOffline = Join-Path $dest 'app_offline.htm'
           try {
             Set-Content -LiteralPath $appOffline -Value 'Anka is being updated. Please retry shortly.' -Encoding UTF8
@@ -126,6 +134,14 @@ jobs:
               throw "Persistent ANKA asset disappeared during deployment: $item"
             }
           }
+          # Existence alone does not detect a corrupted or overwritten EPUB.
+          foreach ($item in $epubHashesBefore.Keys) {
+            $currentHash = (Get-FileHash -LiteralPath $item -Algorithm SHA256).Hash
+            if ($currentHash -ne $epubHashesBefore[$item]) {
+              throw "Persistent ANKA EPUB changed during deployment: $item"
+            }
+          }
+          Write-Host "Verified $($epubHashesBefore.Count) persistent EPUB SHA256 hashes."
           Write-Host "Anka published to $dest; persistent App_Data was preserved."
           try {
             $health = Invoke-WebRequest -Uri 'http://localhost/api/health' -Headers @{ Host = $env:IIS_SITE } -UseBasicParsing -TimeoutSec 20
