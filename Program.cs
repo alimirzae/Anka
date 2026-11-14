@@ -27,6 +27,18 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SameSite=SameSiteMode.Strict;
         options.ExpireTimeSpan=TimeSpan.FromDays(14);
         options.SlidingExpiration=true;
+        // Revalidate every authenticated cookie against current SQLite account state.
+        // A disabled account or revoked role must not retain a valid session for 14 days.
+        options.Events.OnValidatePrincipal=async context=>{
+            var id=context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var role=context.Principal?.FindFirst(ClaimTypes.Role)?.Value;
+            var accounts=context.HttpContext.RequestServices.GetRequiredService<AnkaAccountService>();
+            if(string.IsNullOrWhiteSpace(id)||string.IsNullOrWhiteSpace(role)||
+               !await accounts.IsCurrentRoleAsync(id,role)){
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
+        };
         options.Events.OnRedirectToLogin=context=>{
             if(context.Request.Path.StartsWithSegments("/api")) {
                 context.Response.StatusCode=401;
