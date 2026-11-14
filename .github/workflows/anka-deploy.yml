@@ -138,6 +138,21 @@ jobs:
               }
               Write-Host "Security probe passed: $($probe.Path) -> HTTP $code"
             }
+            # Verify that even a denied EPUB response cannot be stored by shared caches.
+            $epubProbe = '/api/books/00000000-0000-0000-0000-000000000000/file'
+            try {
+              $denied = Invoke-WebRequest -Uri ("http://localhost" + $epubProbe) -Headers $hostHeaders -UseBasicParsing -TimeoutSec 15
+              throw "Expected an entitlement denial, received HTTP $($denied.StatusCode)"
+            } catch {
+              if (-not $_.Exception.Response) { throw "EPUB cache probe transport error: $($_.Exception.Message)" }
+              $deniedResponse = $_.Exception.Response
+              if ([int]$deniedResponse.StatusCode -ne 403) { throw "EPUB cache probe expected HTTP 403" }
+              $cacheControl = [string]$deniedResponse.Headers['Cache-Control']
+              if ($cacheControl -notmatch 'no-store' -or $cacheControl -notmatch 'private') {
+                throw "Protected EPUB response missing private, no-store: $cacheControl"
+              }
+              Write-Host 'Protected EPUB denial has private, no-store cache policy.'
+            }
             Start-Sleep -Seconds 22
             try {
               $catalog = Invoke-RestMethod -Uri 'http://localhost/api/catalog/status' -Headers @{ Host = $env:IIS_SITE } -TimeoutSec 15
