@@ -120,7 +120,10 @@ jobs:
               @{ Path = '/api/admin/publishers'; Expected = 401 },
               @{ Path = '/api/admin/submissions'; Expected = 401 },
               @{ Path = '/api/me/shelf'; Expected = 401 },
-              @{ Path = '/api/publisher/my-submissions'; Expected = 401 }
+              @{ Path = '/api/publisher/my-submissions'; Expected = 401 },
+              # A non-existent GUID must not bypass the entitlement gate.
+              @{ Path = '/api/books/00000000-0000-0000-0000-000000000000/file'; Expected = 403 },
+              @{ Path = '/api/books/00000000-0000-0000-0000-000000000000/reading-status'; Expected = 403 }
             )) {
               $code = 0
               try {
