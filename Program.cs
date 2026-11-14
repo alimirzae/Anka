@@ -228,8 +228,11 @@ app.MapPost("/api/publisher/request",async(HttpContext context,AnkaAccountServic
     return id is not null&&await accounts.RequestPublisherAsync(id,request.Statement??"")?
         Results.Ok(new{ok=true}):Results.BadRequest(new{error="A statement of at least 12 characters is required."});
 }).RequireAuthorization().RequireRateLimiting("account");
-app.MapGet("/api/admin/publishers",async(AnkaAccountService accounts)=>Results.Ok(await accounts.PublisherRequestsAsync()))
-    .RequireAuthorization(policy=>policy.RequireRole("Admin"));
+app.MapGet("/api/admin/publishers",async(HttpContext context,AnkaAccountService accounts)=>{
+    var admin=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(admin is null||!await accounts.IsCurrentRoleAsync(admin,"Admin"))return Results.Forbid();
+    return Results.Ok(await accounts.PublisherRequestsAsync());
+}).RequireAuthorization(policy=>policy.RequireRole("Admin"));
 app.MapPost("/api/admin/publishers/{id:guid}/review",async(Guid id,HttpContext context,AnkaAccountService accounts,AnkaReview review)=>{
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
     var reviewer=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -239,10 +242,15 @@ app.MapPost("/api/admin/publishers/{id:guid}/review",async(Guid id,HttpContext c
 app.MapGet("/api/publisher/my-submissions",async(HttpContext context,AnkaAccountService accounts)=>{
     var userId=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if(userId is null)return Results.Unauthorized();
+    if(!await accounts.IsCurrentRoleAsync(userId,"Publisher") &&
+       !await accounts.IsCurrentRoleAsync(userId,"Admin"))return Results.Forbid();
     return Results.Ok(await accounts.MyBookSubmissionsAsync(userId));
 }).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin"));
-app.MapGet("/api/admin/submissions",async(AnkaAccountService accounts)=>Results.Ok(await accounts.BookSubmissionsAsync()))
-    .RequireAuthorization(policy=>policy.RequireRole("Admin"));
+app.MapGet("/api/admin/submissions",async(HttpContext context,AnkaAccountService accounts)=>{
+    var admin=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(admin is null||!await accounts.IsCurrentRoleAsync(admin,"Admin"))return Results.Forbid();
+    return Results.Ok(await accounts.BookSubmissionsAsync());
+}).RequireAuthorization(policy=>policy.RequireRole("Admin"));
 app.MapPost("/api/admin/submissions/{id:guid}/review",async(Guid id,HttpContext context,AnkaAccountService accounts,AnkaReview review)=>{
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
     var reviewer=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
