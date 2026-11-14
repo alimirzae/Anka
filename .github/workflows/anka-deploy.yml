@@ -101,6 +101,13 @@ jobs:
           $staging = Join-Path $env:RUNNER_TEMP 'anka-publish'
           $dest = $env:IIS_PATH
           if (-not (Test-Path $dest -PathType Container)) { throw "IIS destination is missing: $dest" }
+          $persistentBefore = @()
+          $persistentRoot = Join-Path $dest 'App_Data'
+          if (Test-Path -LiteralPath $persistentRoot -PathType Container) {
+            $persistentBefore = @(Get-ChildItem -LiteralPath $persistentRoot -Recurse -File |
+              Where-Object { $_.Extension -in @('.db', '.sqlite', '.sqlite3', '.epub') } |
+              Select-Object -ExpandProperty FullName)
+          }
           $appOffline = Join-Path $dest 'app_offline.htm'
           try {
             Set-Content -LiteralPath $appOffline -Value 'Anka is being updated. Please retry shortly.' -Encoding UTF8
@@ -111,6 +118,13 @@ jobs:
             $global:LASTEXITCODE = 0
           } finally {
             Remove-Item -LiteralPath $appOffline -Force -ErrorAction SilentlyContinue
+          }
+          # Verify that every pre-existing persistent database and EPUB survived deployment.
+          # This is a non-destructive guard; never recreate or replace missing assets.
+          foreach ($item in $persistentBefore) {
+            if (-not (Test-Path -LiteralPath $item -PathType Leaf)) {
+              throw "Persistent ANKA asset disappeared during deployment: $item"
+            }
           }
           Write-Host "Anka published to $dest; persistent App_Data was preserved."
           try {
