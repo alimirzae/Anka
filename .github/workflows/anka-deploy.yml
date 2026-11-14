@@ -153,6 +153,22 @@ jobs:
               }
               Write-Host 'Protected EPUB denial has private, no-store cache policy.'
             }
+            # Reader diagnostics also contain private entitlement and reading metadata.
+            # Verify denial responses cannot be cached, independently of EPUB downloads.
+            $readerProbe = '/api/books/00000000-0000-0000-0000-000000000000/reading-status'
+            try {
+              $readerResponse = Invoke-WebRequest -Uri ("http://localhost" + $readerProbe) -Headers $hostHeaders -UseBasicParsing -TimeoutSec 15
+              throw "Expected reader entitlement denial, received HTTP $($readerResponse.StatusCode)"
+            } catch {
+              if (-not $_.Exception.Response) { throw "Reader cache probe transport error: $($_.Exception.Message)" }
+              $readerDenied = $_.Exception.Response
+              if ([int]$readerDenied.StatusCode -ne 403) { throw 'Reader cache probe expected HTTP 403' }
+              $readerCache = [string]$readerDenied.Headers['Cache-Control']
+              if ($readerCache -notmatch 'no-store' -or $readerCache -notmatch 'private') {
+                throw "Reader diagnostics denial missing private, no-store: $readerCache"
+              }
+              Write-Host 'Protected reader diagnostics denial has private, no-store cache policy.'
+            }
             Start-Sleep -Seconds 22
             try {
               $catalog = Invoke-RestMethod -Uri 'http://localhost/api/catalog/status' -Headers @{ Host = $env:IIS_SITE } -TimeoutSec 15
