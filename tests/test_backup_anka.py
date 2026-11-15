@@ -63,7 +63,7 @@ class BackupTests(unittest.TestCase):
         }])
         self.assertEqual(source_db.exists(), True)
         self.assertEqual(epub.read_bytes(), payload)
-        self.assertFalse((backup / "epubs").exists())
+        self.assertEqual((backup / "epubs" / "sample.epub").read_bytes(), payload)
 
     def test_online_backup_includes_uncheckpointed_wal_transactions(self):
         db = self.create_db()
