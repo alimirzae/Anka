@@ -85,15 +85,30 @@ jobs:
           # Self-hosted Windows runners may have Python already installed while
           # setup-python cannot download a runtime due to restricted network access.
           # Fail closed: never skip the backup tests or deploy without Python.
-          $python = Get-Command python -ErrorAction SilentlyContinue
-          if ($python) {
-            & $python.Source --version
-            & $python.Source -m unittest discover -s tests -p 'test_backup_anka.py' -v
-          } elseif (Get-Command py -ErrorAction SilentlyContinue) {
-            py -3 -m unittest discover -s tests -p 'test_backup_anka.py' -v
-          } else {
-            throw 'Python 3 is required on the self-hosted runner for SQLite backup safety tests. Install Python 3 or restore setup-python connectivity.'
+          # Prefer an explicitly provisioned interpreter. Windows Store aliases can
+          # appear in PATH without providing a working Python installation.
+          $candidates = @()
+          if ($env:ANKA_PYTHON_EXE) {
+            $candidates += @{ File = $env:ANKA_PYTHON_EXE; Prefix = @() }
           }
+          $python = Get-Command python -ErrorAction SilentlyContinue
+          if ($python) { $candidates += @{ File = $python.Source; Prefix = @() } }
+          $launcher = Get-Command py -ErrorAction SilentlyContinue
+          if ($launcher) { $candidates += @{ File = $launcher.Source; Prefix = @('-3') } }
+          $selected = $null
+          foreach ($candidate in $candidates) {
+            try {
+              $version = & $candidate.File @($candidate.Prefix) -c 'import sys; print(sys.version_info.major)' 2>$null
+              if ($LASTEXITCODE -eq 0 -and "$version".Trim() -eq '3') {
+                $selected = $candidate
+                break
+              }
+            } catch { Write-Host "Python candidate unavailable: $($candidate.File)" }
+          }
+          if (-not $selected) {
+            throw 'No working Python 3 interpreter found for the runner service account. Provision Python 3 and optionally set ANKA_PYTHON_EXE to its absolute python.exe path; deployment remains blocked.'
+          }
+          & $selected.File @($selected.Prefix) -m unittest discover -s tests -p 'test_backup_anka.py' -v
           if ($LASTEXITCODE -ne 0) { throw "SQLite backup safety tests failed: $LASTEXITCODE" }
 
       - name: Publish into staging directory
