@@ -60,6 +60,20 @@ class VerifyBackupTests(unittest.TestCase):
             conn.execute("INSERT INTO editions VALUES ('tampered')")
         self.assertNotEqual(self.verify().returncode, 0)
 
+    def test_corrupt_sqlite_with_matching_hash_fails_integrity_check(self):
+        # A valid digest proves identity, not that the SQLite file is usable.
+        original_epub = self.hash(self.epub)
+        self.db.write_bytes(b"not a sqlite database" + b"\\x00" * 128)
+        self.manifest["database"]["sha256"] = self.hash(self.db)
+        self.save_manifest()
+        before_db = self.hash(self.db)
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.hash(self.db), before_db)
+        self.assertEqual(self.hash(self.epub), original_epub)
+        for suffix in ("-wal", "-shm", "-journal"):
+            self.assertFalse((self.root / ("anka.db" + suffix)).exists())
+
     def test_untracked_sqlite_sidecars_fail(self):
         for suffix in ("-wal", "-shm", "-journal"):
             with self.subTest(suffix=suffix):
