@@ -97,6 +97,25 @@ class BackupTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.site / "backups").exists())
 
+    def test_backup_destination_cannot_be_application_parent(self):
+        """Backups beside app binaries could be exposed by IIS or deployment."""
+        db = self.create_db()
+        before = db.read_bytes()
+        result = self.run_backup(self.site)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("outside", result.stderr.lower())
+        self.assertEqual(db.read_bytes(), before)
+        self.assertEqual(list(self.site.glob("anka-*")), [])
+
+    def test_backup_destination_cannot_be_app_data(self):
+        """Never create a backup inside the live SQLite/EPUB directory."""
+        db = self.create_db()
+        before = db.read_bytes()
+        result = self.run_backup(self.data)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(db.read_bytes(), before)
+        self.assertEqual(list(self.data.glob("anka-*")), [])
+
     def test_epub_inventory_failure_removes_incomplete_backup(self):
         """A rejected EPUB symlink must not leave a seemingly usable backup."""
         db = self.create_db()
