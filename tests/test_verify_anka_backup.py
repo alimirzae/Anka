@@ -60,6 +60,15 @@ class VerifyBackupTests(unittest.TestCase):
             conn.execute("INSERT INTO editions VALUES ('tampered')")
         self.assertNotEqual(self.verify().returncode, 0)
 
+    def test_untracked_sqlite_sidecars_fail(self):
+        for suffix in ("-wal", "-shm", "-journal"):
+            with self.subTest(suffix=suffix):
+                sidecar = self.root / ("anka.db" + suffix)
+                sidecar.write_bytes(b"untracked-sqlite-state")
+                self.assertNotEqual(self.verify().returncode, 0)
+                self.assertEqual(sidecar.read_bytes(), b"untracked-sqlite-state")
+                sidecar.unlink()
+
     def test_missing_epub_fails(self):
         self.epub.unlink()
         self.assertNotEqual(self.verify().returncode, 0)
