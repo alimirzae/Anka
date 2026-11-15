@@ -89,5 +89,27 @@ class VerifyBackupTests(unittest.TestCase):
         self.assertNotEqual(self.verify().returncode, 0)
         self.assertEqual(outside.read_bytes(), b"epub-fixture")
 
+    def test_symlinked_epub_directory_fails(self):
+        outside = Path(self.tmp.name) / "external"
+        outside.mkdir()
+        (outside / "sample.epub").write_bytes(b"epub-fixture")
+        self.epub.unlink()
+        self.epub.parent.rmdir()
+        try:
+            (self.root / "epubs").symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Directory symlinks unavailable: " + str(exc))
+        self.assertNotEqual(self.verify().returncode, 0)
+        self.assertEqual((outside / "sample.epub").read_bytes(), b"epub-fixture")
+
+    def test_unlisted_symlink_directory_fails(self):
+        outside = Path(self.tmp.name) / "external"
+        outside.mkdir()
+        try:
+            (self.epub.parent / "redirect").symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Directory symlinks unavailable: " + str(exc))
+        self.assertNotEqual(self.verify().returncode, 0)
+
 if __name__ == "__main__":
     unittest.main()
