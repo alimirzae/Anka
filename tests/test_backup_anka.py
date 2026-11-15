@@ -117,6 +117,17 @@ class BackupTests(unittest.TestCase):
         self.assertEqual(db.read_bytes(), before)
         self.assertEqual(original.read_bytes(), b"external-test-content")
 
+    def test_corrupt_database_is_rejected_without_backup_artifacts(self):
+        """A damaged source must never produce a valid-looking backup."""
+        db = self.data / "anka.db"
+        damaged = b"not a sqlite database; isolated test fixture"
+        db.write_bytes(damaged)
+        result = self.run_backup()
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(db.read_bytes(), damaged)
+        self.assertEqual(list(self.output.glob("anka-*")), [])
+        self.assertFalse((self.data / "anka.db.partial").exists())
+
     def test_database_is_not_modified(self):
         db = self.create_db()
         before = hashlib.sha256(db.read_bytes()).hexdigest()
