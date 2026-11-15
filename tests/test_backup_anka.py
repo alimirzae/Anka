@@ -136,6 +136,28 @@ class BackupTests(unittest.TestCase):
         self.assertEqual(db.read_bytes(), before)
         self.assertEqual((external / "external.epub").read_bytes(), payload)
 
+    def test_nested_epub_directory_symlink_is_rejected(self):
+        """Nested directory links must not escape the EPUB inventory boundary."""
+        db = self.create_db()
+        epubs = self.data / "epubs"
+        epubs.mkdir()
+        external = self.root / "outside"
+        external.mkdir()
+        original = external / "private.epub"
+        payload = b"outside-fixture"
+        original.write_bytes(payload)
+        try:
+            (epubs / "redirect").symlink_to(external, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Directory symlinks unavailable: " + str(exc))
+        before = db.read_bytes()
+        result = self.run_backup()
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("symlink", result.stderr.lower())
+        self.assertEqual(list(self.output.glob("anka-*")), [])
+        self.assertEqual(db.read_bytes(), before)
+        self.assertEqual(original.read_bytes(), payload)
+
     def test_epub_root_file_is_rejected_without_backup_artifacts(self):
         """An EPUB inventory path that is a file must fail closed."""
         db = self.create_db()
