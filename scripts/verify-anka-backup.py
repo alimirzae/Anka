@@ -50,9 +50,13 @@ def verify(root):
             result[key] = value
         return result
 
+    def reject_nonfinite(value):
+        raise ValueError("Non-standard JSON numeric value: " + value)
+
     manifest = json.loads(
         manifest_path.read_text(encoding="utf-8"),
         object_pairs_hook=unique_keys,
+        parse_constant=reject_nonfinite,
     )
     database = manifest["database"]
     if database["name"] != "anka.db":
