@@ -46,6 +46,12 @@ def verify(root):
     database = manifest["database"]
     if database["name"] != "anka.db":
         raise ValueError("Unexpected SQLite filename")
+    # A restored SQLite snapshot must be self-contained. Untracked WAL/journal
+    # sidecars could change the restored state despite a valid main-file hash.
+    for suffix in ("-wal", "-shm", "-journal"):
+        sidecar = root / (database["name"] + suffix)
+        if sidecar.exists() or sidecar.is_symlink():
+            raise ValueError("Unexpected SQLite sidecar in backup: " + sidecar.name)
     db = checked_file(root, database["name"])
     if digest(db) != database["sha256"]:
         raise ValueError("SQLite SHA-256 mismatch")
