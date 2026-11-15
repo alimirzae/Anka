@@ -65,6 +65,29 @@ class BackupTests(unittest.TestCase):
         self.assertEqual(epub.read_bytes(), payload)
         self.assertEqual((backup / "epubs" / "sample.epub").read_bytes(), payload)
 
+    def test_backup_roundtrip_passes_read_only_verifier(self):
+        """A produced snapshot must pass the independent restore preflight."""
+        self.create_db()
+        epub = self.data / "epubs" / "sample.epub"
+        epub.parent.mkdir()
+        epub.write_bytes(b"isolated-roundtrip-edition")
+        created = self.run_backup()
+        self.assertEqual(created.returncode, 0, created.stderr)
+        snapshots = list(self.output.glob("anka-*"))
+        self.assertEqual(len(snapshots), 1)
+        snapshot = snapshots[0]
+        before = {p.relative_to(snapshot).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in snapshot.rglob("*") if p.is_file()}
+        verifier = Path(__file__).resolve().parents[1] / "scripts" / "verify-anka-backup.py"
+        result = subprocess.run(
+            [sys.executable, str(verifier), "--backup-dir", str(snapshot)],
+            capture_output=True, text=True, timeout=45,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        after = {p.relative_to(snapshot).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                 for p in snapshot.rglob("*") if p.is_file()}
+        self.assertEqual(before, after)
+
     def test_online_backup_includes_uncheckpointed_wal_transactions(self):
         db = self.create_db()
         writer = sqlite3.connect(db, timeout=30)
