@@ -42,7 +42,18 @@ def verify(root):
     if root.is_symlink() or not root.is_dir():
         raise ValueError("Backup must be a real directory")
     manifest_path = checked_file(root, "manifest.json")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    def unique_keys(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("Duplicate manifest JSON key: " + key)
+            result[key] = value
+        return result
+
+    manifest = json.loads(
+        manifest_path.read_text(encoding="utf-8"),
+        object_pairs_hook=unique_keys,
+    )
     database = manifest["database"]
     if database["name"] != "anka.db":
         raise ValueError("Unexpected SQLite filename")
