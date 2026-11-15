@@ -66,9 +66,12 @@ def verify(root):
     db = checked_file(root, database["name"])
     if digest(db) != database["sha256"]:
         raise ValueError("SQLite SHA-256 mismatch")
-    with sqlite3.connect("file:" + db.resolve().as_posix() + "?mode=ro", uri=True) as conn:
-        if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-            raise ValueError("SQLite integrity check failed")
+    # Immutable read-only mode prevents SQLite from creating journal/SHM files
+    # or consulting an external WAL while inspecting this self-contained snapshot.
+    with sqlite3.connect("file:" + db.resolve().as_posix() + "?mode=ro&immutable=1", uri=True) as conn:
+        results = [row[0] for row in conn.execute("PRAGMA integrity_check")]
+        if results != ["ok"]:
+            raise ValueError("SQLite integrity check failed: " + str(results[:3]))
     seen = set()
     for entry in manifest["epubs"]:
         name = entry["path"]
