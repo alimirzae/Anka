@@ -109,6 +109,20 @@ class VerifyBackupTests(unittest.TestCase):
         self.assertEqual(self.hash(self.db), original_db)
         self.assertEqual(self.hash(self.epub), original_epub)
 
+    def test_nonstandard_json_numbers_fail_without_modifying_assets(self):
+        original_db = self.hash(self.db)
+        original_epub = self.hash(self.epub)
+        for value in ("NaN", "Infinity", "-Infinity"):
+            with self.subTest(value=value):
+                manifest = json.dumps(self.manifest)
+                manifest = manifest[:-1] + ', "untrusted": ' + value + '}'
+                (self.root / "manifest.json").write_text(manifest, encoding="utf-8")
+                result = self.verify()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Non-standard JSON numeric value", result.stderr)
+                self.assertEqual(self.hash(self.db), original_db)
+                self.assertEqual(self.hash(self.epub), original_epub)
+
     def test_parent_traversal_fails(self):
         self.manifest["epubs"][0]["path"] = "epubs/../sample.epub"
         self.save_manifest()
