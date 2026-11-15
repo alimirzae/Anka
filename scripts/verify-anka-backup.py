@@ -26,8 +26,12 @@ def checked_file(root, name):
     posix = PurePosixPath(name)
     if posix.is_absolute() or any(part in (".", "..") for part in name.split("/")):
         raise ValueError("Unsafe manifest path: " + name)
-    candidate = root.joinpath(*posix.parts)
-    if candidate.is_symlink() or not candidate.is_file():
+    candidate = root
+    for part in posix.parts:
+        candidate = candidate / part
+        if candidate.is_symlink():
+            raise ValueError("Symlink in backup path: " + name)
+    if not candidate.is_file():
         raise ValueError("Missing or redirected backup file: " + name)
     if not candidate.resolve().is_relative_to(root.resolve()):
         raise ValueError("Backup path escapes root: " + name)
@@ -57,7 +61,16 @@ def verify(root):
         file = checked_file(root, name)
         if file.stat().st_size != entry["size"] or digest(file) != entry["sha256"]:
             raise ValueError("EPUB size/hash mismatch: " + name)
-    actual = {p.relative_to(root).as_posix() for p in (root / "epubs").rglob("*") if p.is_file()} if (root / "epubs").exists() else set()
+    epub_root = root / "epubs"
+    if epub_root.is_symlink():
+        raise ValueError("EPUB backup directory is redirected")
+    if epub_root.exists() and not epub_root.is_dir():
+        raise ValueError("EPUB backup path is not a directory")
+    if epub_root.is_dir():
+        for item in epub_root.rglob("*"):
+            if item.is_symlink():
+                raise ValueError("Symlink inside EPUB backup: " + str(item))
+    actual = {p.relative_to(root).as_posix() for p in epub_root.rglob("*") if p.is_file()} if epub_root.is_dir() else set()
     if actual != seen:
         raise ValueError("EPUB inventory does not match backup files")
     return len(seen)
