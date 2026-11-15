@@ -79,15 +79,21 @@ jobs:
           }
           if ($tests.Count -eq 0) { Write-Host 'No *Tests.csproj found. Build passed, but there are no automated tests yet.' }
 
-      - name: Set up Python for isolated backup tests
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
       - name: Test SQLite backup safety using temporary fixtures
         run: |
           $ErrorActionPreference = 'Stop'
-          python -m unittest discover -s tests -p 'test_backup_anka.py' -v
+          # Self-hosted Windows runners may have Python already installed while
+          # setup-python cannot download a runtime due to restricted network access.
+          # Fail closed: never skip the backup tests or deploy without Python.
+          $python = Get-Command python -ErrorAction SilentlyContinue
+          if ($python) {
+            & $python.Source --version
+            & $python.Source -m unittest discover -s tests -p 'test_backup_anka.py' -v
+          } elseif (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m unittest discover -s tests -p 'test_backup_anka.py' -v
+          } else {
+            throw 'Python 3 is required on the self-hosted runner for SQLite backup safety tests. Install Python 3 or restore setup-python connectivity.'
+          }
           if ($LASTEXITCODE -ne 0) { throw "SQLite backup safety tests failed: $LASTEXITCODE" }
 
       - name: Publish into staging directory
