@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import sqlite3
 import sys
@@ -69,17 +70,26 @@ def main():
                 with path.open("rb") as f:
                     for chunk in iter(lambda: f.read(1024 * 1024), b""):
                         digest.update(chunk)
-                manifest["epubs"].append({"path": path.relative_to(source).as_posix(), "size": path.stat().st_size, "sha256": digest.hexdigest()})
+                relative = path.relative_to(source)
+                copied = target / relative
+                copied.parent.mkdir(parents=True, exist_ok=True)
+                # Copy into the new backup tree; never modify the source EPUB.
+                with path.open("rb") as src, copied.open("xb") as dst:
+                    shutil.copyfileobj(src, dst, length=1024 * 1024)
+                copied_digest = hashlib.sha256()
+                with copied.open("rb") as check:
+                    for chunk in iter(lambda: check.read(1024 * 1024), b""):
+                        copied_digest.update(chunk)
+                if copied_digest.hexdigest() != digest.hexdigest():
+                    raise RuntimeError("EPUB changed during backup: " + str(path))
+                manifest["epubs"].append({"path": relative.as_posix(), "size": copied.stat().st_size, "sha256": copied_digest.hexdigest()})
         (target / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-        print("Verified SQLite backup and EPUB inventory:", target)
-        print("EPUBs are NOT copied. Back them up separately and verify against manifest.")
+        print("Verified SQLite backup and EPUB copies:", target)
+        print("Verify restoration in an isolated environment before relying on this backup.")
     except Exception:
         # A failed inventory must not leave a directory that resembles a usable backup.
         # Only remove files created in this newly allocated target; never touch source.
-        for artifact in (target / "manifest.json", target / "anka.db", temporary):
-            if artifact.exists():
-                artifact.unlink()
-        target.rmdir()
+        shutil.rmtree(target)
         raise
 
 if __name__ == "__main__":
