@@ -53,7 +53,13 @@ def main():
         temporary.replace(final)
         manifest = {"created_utc": stamp, "database": {"name": final.name, "sha256": hashlib.sha256(final.read_bytes()).hexdigest()}, "epubs": []}
         epubs = source / "epubs"
-        if epubs.exists():
+        # Reject a redirected EPUB root, not just symlinks found below it.
+        # Otherwise a symlinked root can silently produce an incomplete inventory.
+        if epubs.is_symlink():
+            raise RuntimeError("Refusing symlinked EPUB root: " + str(epubs))
+        if epubs.exists() and not epubs.is_dir():
+            raise RuntimeError("EPUB root must be a directory: " + str(epubs))
+        if epubs.is_dir():
             for path in sorted(epubs.rglob("*")):
                 if path.is_symlink():
                     raise RuntimeError("Refusing symlink in EPUB tree: " + str(path))
