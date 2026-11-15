@@ -117,6 +117,39 @@ class BackupTests(unittest.TestCase):
         self.assertEqual(db.read_bytes(), before)
         self.assertEqual(original.read_bytes(), b"external-test-content")
 
+    def test_symlinked_epub_root_is_rejected_without_backup_artifacts(self):
+        """A redirected EPUB root must not be accepted as a complete inventory."""
+        db = self.create_db()
+        external = self.root / "external-epubs"
+        external.mkdir()
+        payload = b"external-edition"
+        (external / "external.epub").write_bytes(payload)
+        try:
+            (self.data / "epubs").symlink_to(external, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Directory symlinks unavailable: " + str(exc))
+        before = db.read_bytes()
+        result = self.run_backup()
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("symlink", result.stderr.lower())
+        self.assertEqual(list(self.output.glob("anka-*")), [])
+        self.assertEqual(db.read_bytes(), before)
+        self.assertEqual((external / "external.epub").read_bytes(), payload)
+
+    def test_epub_root_file_is_rejected_without_backup_artifacts(self):
+        """An EPUB inventory path that is a file must fail closed."""
+        db = self.create_db()
+        root_file = self.data / "epubs"
+        payload = b"not-a-directory"
+        root_file.write_bytes(payload)
+        before = db.read_bytes()
+        result = self.run_backup()
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("directory", result.stderr.lower())
+        self.assertEqual(list(self.output.glob("anka-*")), [])
+        self.assertEqual(db.read_bytes(), before)
+        self.assertEqual(root_file.read_bytes(), payload)
+
     def test_corrupt_database_is_rejected_without_backup_artifacts(self):
         """A damaged source must never produce a valid-looking backup."""
         db = self.data / "anka.db"
