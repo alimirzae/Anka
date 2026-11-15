@@ -68,8 +68,12 @@ def main():
         print("Verified SQLite backup and EPUB inventory:", target)
         print("EPUBs are NOT copied. Back them up separately and verify against manifest.")
     except Exception:
-        if temporary.exists():
-            temporary.unlink()
+        # A failed inventory must not leave a directory that resembles a usable backup.
+        # Only remove files created in this newly allocated target; never touch source.
+        for artifact in (target / "manifest.json", target / "anka.db", temporary):
+            if artifact.exists():
+                artifact.unlink()
+        target.rmdir()
         raise
 
 if __name__ == "__main__":
