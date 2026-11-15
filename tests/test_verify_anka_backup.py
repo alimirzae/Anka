@@ -123,6 +123,31 @@ class VerifyBackupTests(unittest.TestCase):
                 self.assertEqual(self.hash(self.db), original_db)
                 self.assertEqual(self.hash(self.epub), original_epub)
 
+    def test_invalid_manifest_metadata_fails_without_modifying_assets(self):
+        original_db = self.hash(self.db)
+        original_epub = self.hash(self.epub)
+        mutations = [
+            lambda m: m.update({"database": []}),
+            lambda m: m.update({"epubs": {}}),
+            lambda m: m["database"].update({"sha256": "not-a-digest"}),
+            lambda m: m["epubs"][0].update({"sha256": 42}),
+            lambda m: m["epubs"][0].update({"size": -1}),
+            lambda m: m["epubs"][0].update({"size": True}),
+        ]
+        for mutate in mutations:
+            with self.subTest(mutation=mutations.index(mutate)):
+                self.manifest = {
+                    "database": {"name": "anka.db", "sha256": original_db},
+                    "epubs": [{"path": "epubs/sample.epub", "size": self.epub.stat().st_size,
+                               "sha256": original_epub}],
+                }
+                mutate(self.manifest)
+                self.save_manifest()
+                result = self.verify()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(self.hash(self.db), original_db)
+                self.assertEqual(self.hash(self.epub), original_epub)
+
     def test_parent_traversal_fails(self):
         self.manifest["epubs"][0]["path"] = "epubs/../sample.epub"
         self.save_manifest()
