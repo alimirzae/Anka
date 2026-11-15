@@ -82,6 +82,19 @@ class VerifyBackupTests(unittest.TestCase):
         self.save_manifest()
         self.assertNotEqual(self.verify().returncode, 0)
 
+    def test_duplicate_manifest_json_keys_fail_without_modifying_data(self):
+        original_db = self.hash(self.db)
+        original_epub = self.hash(self.epub)
+        valid = json.dumps(self.manifest)
+        # A repeated key is ambiguous: different parsers may trust different values.
+        malformed = valid[:-1] + ', "epubs": []}'
+        (self.root / "manifest.json").write_text(malformed, encoding="utf-8")
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Duplicate manifest JSON key", result.stderr)
+        self.assertEqual(self.hash(self.db), original_db)
+        self.assertEqual(self.hash(self.epub), original_epub)
+
     def test_parent_traversal_fails(self):
         self.manifest["epubs"][0]["path"] = "epubs/../sample.epub"
         self.save_manifest()
