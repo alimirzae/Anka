@@ -110,7 +110,7 @@ jobs:
           if (-not $selected) {
             throw 'No working Python 3 interpreter found for the runner service account. Provision Python 3 and optionally set ANKA_PYTHON_EXE to its absolute python.exe path; deployment remains blocked.'
           }
-          & $selected.File @($selected.Prefix) -m unittest discover -s tests -p 'test_*backup.py' -v
+          & $selected.File @($selected.Prefix) -m unittest discover -s tests -p 'test_*backup*.py' -v
           if ($LASTEXITCODE -ne 0) { throw "SQLite backup safety tests failed: $LASTEXITCODE" }
 
       - name: Publish into staging directory
