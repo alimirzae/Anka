@@ -97,6 +97,26 @@ class BackupTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.site / "backups").exists())
 
+    def test_epub_inventory_failure_removes_incomplete_backup(self):
+        """A rejected EPUB symlink must not leave a seemingly usable backup."""
+        db = self.create_db()
+        epubs = self.data / "epubs"
+        epubs.mkdir()
+        original = self.root / "external.epub"
+        original.write_bytes(b"external-test-content")
+        link = epubs / "linked.epub"
+        try:
+            link.symlink_to(original)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Creating symlinks is unavailable on this runner: " + str(exc))
+        before = db.read_bytes()
+        result = self.run_backup()
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("symlink", result.stderr.lower())
+        self.assertEqual(list(self.output.glob("anka-*")), [])
+        self.assertEqual(db.read_bytes(), before)
+        self.assertEqual(original.read_bytes(), b"external-test-content")
+
     def test_database_is_not_modified(self):
         db = self.create_db()
         before = hashlib.sha256(db.read_bytes()).hexdigest()
