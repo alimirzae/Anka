@@ -20,6 +20,10 @@ def digest(path):
     return h.hexdigest()
 
 
+def valid_sha256(value):
+    return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+
+
 def checked_file(root, name):
     if not isinstance(name, str) or not name or "\\" in name:
         raise ValueError("Invalid manifest path")
@@ -58,7 +62,11 @@ def verify(root):
         object_pairs_hook=unique_keys,
         parse_constant=reject_nonfinite,
     )
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("database"), dict) or not isinstance(manifest.get("epubs"), list):
+        raise ValueError("Invalid backup manifest structure")
     database = manifest["database"]
+    if not valid_sha256(database.get("sha256")):
+        raise ValueError("Invalid SQLite SHA-256 field")
     if database["name"] != "anka.db":
         raise ValueError("Unexpected SQLite filename")
     # A restored SQLite snapshot must be self-contained. Untracked WAL/journal
@@ -78,7 +86,9 @@ def verify(root):
             raise ValueError("SQLite integrity check failed: " + str(results[:3]))
     seen = set()
     for entry in manifest["epubs"]:
-        name = entry["path"]
+        if not isinstance(entry, dict) or not valid_sha256(entry.get("sha256")) or type(entry.get("size")) is not int or entry["size"] < 0:
+            raise ValueError("Invalid EPUB manifest metadata")
+        name = entry.get("path")
         if not isinstance(name, str) or not name.startswith("epubs/") or name in seen:
             raise ValueError("Invalid or duplicate EPUB entry")
         seen.add(name)
