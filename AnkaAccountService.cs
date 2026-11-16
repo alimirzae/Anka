@@ -398,7 +398,9 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
                  NOT EXISTS(SELECT 1 FROM anka_book_access a
                    WHERE a.book_id=b.id AND a.access_mode='manual')
                  OR EXISTS(SELECT 1 FROM anka_manual_entitlements e
-                   WHERE e.book_id=b.id AND e.user_id=@user)
+                   JOIN anka_users entitled_user ON entitled_user.id=e.user_id
+                   WHERE e.book_id=b.id AND e.user_id=@user
+                     AND entitled_user.disabled=0)
                  OR EXISTS(SELECT 1 FROM anka_users u
                    WHERE u.id=@user AND u.role='Admin' AND u.disabled=0)
                )
