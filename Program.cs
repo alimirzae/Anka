@@ -384,12 +384,18 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
             if ((await sr.ReadToEndAsync()).Trim() != "application/epub+zip")
                 throw new InvalidDataException("Invalid EPUB mimetype.");
         var container = archive.GetEntry("META-INF/container.xml") ?? throw new InvalidDataException("Container missing.");
+        // Metadata XML is untrusted publisher input. Bound its decompressed size
+        // before parsing to prevent oversized container documents from consuming memory.
+        if (container.Length > 1024 * 1024)
+            throw new InvalidDataException("EPUB container metadata exceeds 1MB.");
         XDocument xml;
         using (var stream = container.Open()) xml = XDocument.Load(stream);
         var opfPath = xml.Descendants().FirstOrDefault(x => x.Name.LocalName == "rootfile")?.Attribute("full-path")?.Value;
         if (string.IsNullOrEmpty(opfPath) || opfPath.StartsWith('/') || opfPath.Contains("..") || opfPath.Contains('\\'))
             throw new InvalidDataException("Invalid package path.");
         var opf = archive.GetEntry(opfPath) ?? throw new InvalidDataException("Package missing.");
+        if (opf.Length > 4 * 1024 * 1024)
+            throw new InvalidDataException("EPUB package metadata exceeds 4MB.");
         XDocument package;
         using (var stream = opf.Open()) package = XDocument.Load(stream);
         string meta(string tag) => package.Descendants().FirstOrDefault(x => x.Name.LocalName == tag)?.Value.Trim() ?? "";
