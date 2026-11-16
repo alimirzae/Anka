@@ -225,8 +225,13 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         cmd.Parameters.AddWithValue("@id",userId);
         if(await cmd.ExecuteNonQueryAsync()!=1)return false;
         if(approve){
-            cmd.CommandText="UPDATE anka_users SET role='Publisher' WHERE id=@id AND role='Reader'";
-            await cmd.ExecuteNonQueryAsync();
+            // Approval and role assignment must succeed together. A disabled or
+            // already-promoted account must not receive an approved request.
+            cmd.CommandText="UPDATE anka_users SET role='Publisher' WHERE id=@id AND role='Reader' AND disabled=0";
+            if(await cmd.ExecuteNonQueryAsync()!=1){
+                await transaction.RollbackAsync();
+                return false;
+            }
         }
         await transaction.CommitAsync();
         return true;
