@@ -202,6 +202,8 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
           FROM anka_users WHERE id=@id AND role='Reader' AND disabled=0
           ON CONFLICT(user_id) DO UPDATE SET statement=excluded.statement,state='pending',
           requested_utc=excluded.requested_utc,reviewed_utc=NULL
+          WHERE EXISTS(SELECT 1 FROM anka_users u
+                       WHERE u.id=excluded.user_id AND u.role='Reader' AND u.disabled=0)
           """;
         cmd.Parameters.AddWithValue("@id",userId);cmd.Parameters.AddWithValue("@text",statement);
         return await cmd.ExecuteNonQueryAsync()>0;
