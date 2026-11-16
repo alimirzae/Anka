@@ -349,6 +349,9 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
           WHERE id=@id AND NOT EXISTS(
             SELECT 1 FROM anka_book_moderation m WHERE m.book_id=books.id AND m.state!='approved')
           ON CONFLICT(book_id) DO UPDATE SET access_mode=excluded.access_mode,updated_utc=excluded.updated_utc
+          WHERE EXISTS(SELECT 1 FROM books b WHERE b.id=excluded.book_id
+            AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
+              WHERE m.book_id=b.id AND m.state!='approved'))
           """;
         cmd.Parameters.AddWithValue("@id",bookId);
         cmd.Parameters.AddWithValue("@mode",manual?"manual":"free");
