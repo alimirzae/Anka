@@ -178,7 +178,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     {
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="UPDATE anka_users SET role='Publisher' WHERE id=@id AND role='Reader'";
+        cmd.CommandText="UPDATE anka_users SET role='Publisher' WHERE id=@id AND role='Reader' AND disabled=0";
         cmd.Parameters.AddWithValue("@id",userId);
         return await cmd.ExecuteNonQueryAsync()==1;
     }
