@@ -180,7 +180,9 @@ if(app.Environment.IsDevelopment() &&
 {
     app.MapPost("/api/account/test-login",async(HttpContext context,AnkaAccountService accounts,AnkaTestLogin input)=>{
         // Deliberately unavailable in Production; development loopback only.
-        if(!System.Net.IPAddress.IsLoopback(context.Connection.RemoteIpAddress??System.Net.IPAddress.None))
+        if(!System.Net.IPAddress.IsLoopback(context.Connection.RemoteIpAddress??System.Net.IPAddress.None) ||
+           !(string.Equals(context.Request.Host.Host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+             (System.Net.IPAddress.TryParse(context.Request.Host.Host, out var hostIp) && System.Net.IPAddress.IsLoopback(hostIp))))
             return Results.StatusCode(403);
         if(!SameOrigin(context.Request)||input.Pin!="1234")return Results.StatusCode(403);
         var account=await accounts.FindLocalTestAccountAsync(input.Email??"");
