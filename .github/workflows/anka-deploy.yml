@@ -13,10 +13,10 @@ on:
       - 'wwwroot/**'
       - 'Components/**'
       - '**/*.json'
-      - 'scripts/backup-anka.py'
-      - 'tests/test_backup_anka.py'
-      - 'tests/test_verify_anka_backup.py'
-      - 'scripts/verify-anka-backup.py'
+      # Every backup/security script or test change must trigger the deployment gates.
+      # Otherwise a newly added test can remain unexecuted until unrelated code changes.
+      - 'scripts/**'
+      - 'tests/**'
       - '.github/workflows/anka-deploy.yml'
 
 permissions:
