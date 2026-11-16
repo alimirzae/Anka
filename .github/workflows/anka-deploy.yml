@@ -110,7 +110,23 @@ jobs:
           foreach ($root in $extraRoots) {
             if (-not $root -or -not (Test-Path -LiteralPath $root -PathType Container)) { continue }
             $installDirs = @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue |
-              Where-Object { $_.Name -match '^(Python3[0-9]+|Python)
+              Where-Object { $_.Name -match '^(Python3[0-9]+|Python)$' })
+            foreach ($install in $installDirs) {
+              $exe = Join-Path $install.FullName 'python.exe'
+              if (Test-Path -LiteralPath $exe -PathType Leaf) {
+                $candidates += @{ File = $exe; Prefix = @() }
+              }
+              if ($install.Name -eq 'Python') {
+                foreach ($versionDir in @(Get-ChildItem -LiteralPath $install.FullName -Directory -ErrorAction SilentlyContinue)) {
+                  $nestedExe = Join-Path $versionDir.FullName 'x64\python.exe'
+                  if (Test-Path -LiteralPath $nestedExe -PathType Leaf) {
+                    $candidates += @{ File = $nestedExe; Prefix = @() }
+                  }
+                }
+              }
+            }
+          }
+          $python = Get-Command python -ErrorAction SilentlyContinue
           if ($python) { $candidates += @{ File = $python.Source; Prefix = @() } }
           $launcher = Get-Command py -ErrorAction SilentlyContinue
           if ($launcher) { $candidates += @{ File = $launcher.Source; Prefix = @('-3') } }
