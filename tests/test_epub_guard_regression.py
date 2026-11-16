@@ -39,7 +39,7 @@ class EpubGuardRegressionTests(unittest.TestCase):
 
     def test_ci_discovers_security_regressions(self):
         workflow = (PROGRAM.parent / ".github/workflows/anka-deploy.yml").read_text(encoding="utf-8")
-        self.assertIn("test_*backup*.py", workflow)
+        self.assertIn("test_*.py", workflow)
         self.assertIn("tests/**", workflow)
 
 
