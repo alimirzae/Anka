@@ -204,8 +204,11 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
+          -- Only active Readers may request publisher status. An approved publisher
+          -- cannot reset their reviewed application to pending.
           INSERT INTO anka_publisher_requests(user_id,statement,state,requested_utc)
-          VALUES(@id,@text,'pending',strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+          SELECT id,@text,'pending',strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          FROM anka_users WHERE id=@id AND role='Reader' AND disabled=0
           ON CONFLICT(user_id) DO UPDATE SET statement=excluded.statement,state='pending',
           requested_utc=excluded.requested_utc,reviewed_utc=NULL
           """;
