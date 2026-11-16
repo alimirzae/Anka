@@ -174,15 +174,6 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         if(!await r.ReadAsync())return null;
         return(r.GetString(0),r.GetString(1),r.GetString(2));
     }
-    public async Task<bool> MakePublisherAsync(string userId)
-    {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
-        await using var cmd=db.CreateCommand();
-        cmd.CommandText="UPDATE anka_users SET role='Publisher' WHERE id=@id AND role='Reader' AND disabled=0";
-        cmd.Parameters.AddWithValue("@id",userId);
-        return await cmd.ExecuteNonQueryAsync()==1;
-    }
-
     public async Task<IReadOnlyList<AnkaPublisherRequest>> PublisherRequestsAsync()
     {
         var result=new List<AnkaPublisherRequest>();
