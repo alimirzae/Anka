@@ -380,7 +380,7 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         if (archive.Entries.Count > 15000 || archive.Entries.Sum(e => e.Length) > 200L * 1024 * 1024)
             throw new InvalidDataException("EPUB exceeds limits.");
         var mime = archive.GetEntry("mimetype") ?? throw new InvalidDataException("EPUB mimetype missing.");
-        using (var sr = new StreamReader(mime.Open(), Encoding.ASCII))
+        // The EPUB mimetype is a tiny fixed literal; reject oversized decompressed entries.\n        // This avoids reading attacker-controlled multi-megabyte text into memory.\n        if (mime.Length > 128)\n            throw new InvalidDataException("EPUB mimetype entry is too large.");\n        using (var sr = new StreamReader(mime.Open(), Encoding.ASCII))
             if ((await sr.ReadToEndAsync()).Trim() != "application/epub+zip")
                 throw new InvalidDataException("Invalid EPUB mimetype.");
         var container = archive.GetEntry("META-INF/container.xml") ?? throw new InvalidDataException("Container missing.");
