@@ -21,3 +21,34 @@ jobs:
           python-version: '3.12'
       - name: Run isolated SQLite and authorization regression tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+  dotnet-build-verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore dependencies
+        run: dotnet restore Anka.csproj
+      - name: Build application in Release
+        run: dotnet build Anka.csproj --configuration Release --no-restore
+      - name: Verify publish output without production data
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish Anka.csproj --configuration Release --no-build --output "$RUNNER_TEMP/anka-publish"
+          test -f "$RUNNER_TEMP/anka-publish/Anka.dll"
+          for protected in App_Data data uploads; do
+            if [ -e "$RUNNER_TEMP/anka-publish/$protected" ]; then
+              echo "::error::Publish output contains protected directory: $protected"
+              exit 1
+            fi
+          done
+          if find "$RUNNER_TEMP/anka-publish" -type f \( -iname '*.db' -o -iname '*.sqlite' -o -iname '*.sqlite3' -o -iname '*.epub' -o -iname '*.pfx' -o -iname '*.pem' -o -iname '*.key' \) | grep -q .; then
+            echo "::error::Publish output contains protected data or credentials"
+            exit 1
+          fi
