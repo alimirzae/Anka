@@ -347,11 +347,11 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
           INSERT INTO anka_book_access(book_id,access_mode,updated_utc)
           SELECT id,@mode,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM books
           WHERE id=@id AND NOT EXISTS(
-            SELECT 1 FROM anka_book_moderation m WHERE m.book_id=books.id AND m.state!='approved')
+            SELECT 1 FROM anka_book_moderation m WHERE m.book_id=books.id AND m.state IS NOT 'approved')
           ON CONFLICT(book_id) DO UPDATE SET access_mode=excluded.access_mode,updated_utc=excluded.updated_utc
           WHERE EXISTS(SELECT 1 FROM books b WHERE b.id=excluded.book_id
             AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
-              WHERE m.book_id=b.id AND m.state!='approved'))
+              WHERE m.book_id=b.id AND m.state IS NOT 'approved'))
           """;
         cmd.Parameters.AddWithValue("@id",bookId);
         cmd.Parameters.AddWithValue("@mode",manual?"manual":"free");
@@ -373,7 +373,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
             AND EXISTS(SELECT 1 FROM anka_users reviewer
                        WHERE reviewer.id=@admin AND reviewer.role='Admin' AND reviewer.disabled=0)
             AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
-                           WHERE m.book_id=b.id AND m.state!='approved')
+                           WHERE m.book_id=b.id AND m.state IS NOT 'approved')
           """;
         cmd.Parameters.AddWithValue("@email",email);
         cmd.Parameters.AddWithValue("@book",bookId);
