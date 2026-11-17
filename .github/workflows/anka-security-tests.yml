@@ -3,10 +3,6 @@ name: ANKA - Independent Security Tests
 on:
   push:
     branches: [main]
-    paths:
-      - 'tests/**'
-      - 'scripts/**'
-      - '.github/workflows/anka-security-tests.yml'
   workflow_dispatch:
 
 permissions:
