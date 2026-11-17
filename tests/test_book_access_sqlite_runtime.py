@@ -66,6 +66,19 @@ class BookAccessModerationTests(unittest.TestCase):
         self.assertEqual(0, self.set_mode("approved", "free"))
         self.assertEqual("manual", self.mode("approved"))
 
+    def test_pending_review_blocks_existing_access_mode_changes(self):
+        self.assertEqual(1, self.set_mode("approved", "manual"))
+        self.db.execute(
+            "UPDATE anka_book_moderation SET state='pending' WHERE book_id='approved'"
+        )
+        self.assertEqual(0, self.set_mode("approved", "free"))
+        self.assertEqual("manual", self.mode("approved"))
+        self.db.execute(
+            "UPDATE anka_book_moderation SET state='approved' WHERE book_id='approved'"
+        )
+        self.assertEqual(1, self.set_mode("approved", "free"))
+        self.assertEqual("free", self.mode("approved"))
+
     def test_missing_book_cannot_create_access(self):
         self.assertEqual(0, self.set_mode("missing", "manual"))
         self.assertIsNone(self.mode("missing"))
