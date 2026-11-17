@@ -59,6 +59,15 @@ class RightsApprovalSqliteTests(unittest.TestCase):
                 self.assertEqual(result.rowcount, 0)
                 self.assertEqual(self.db.execute("SELECT state FROM anka_book_moderation WHERE book_id='book'").fetchone()[0], initial)
 
+    def test_null_rights_or_uploader_fail_closed(self):
+        for uploader, rights in (("publisher", None), (None, "I own publication rights")):
+            with self.subTest(uploader=uploader, rights=rights):
+                self.assertEqual(self.review(uploader, rights), (0, "pending"))
+
+    def test_publisher_revocation_before_review_blocks_approval(self):
+        self.db.execute("UPDATE anka_users SET role='Reader' WHERE id='publisher'")
+        self.assertEqual(self.review("publisher", "I own publication rights"), (0, "pending"))
+
     def test_admin_can_reject_invalid_submission(self):
         self.assertEqual(self.review("reader","short",state="rejected"), (1,"rejected"))
 
