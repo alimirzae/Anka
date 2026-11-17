@@ -85,6 +85,25 @@ class ReadAuthorizationRuntimeTests(unittest.TestCase):
         self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='reader'")
         self.assertFalse(self.can_read("reader", "manual"))
 
+    def test_entitlement_is_scoped_to_exact_user_and_book(self):
+        self.assertTrue(self.can_read("reader", "manual"))
+        self.assertFalse(self.can_read("other", "manual"))
+        self.db.execute(
+            "INSERT INTO anka_manual_entitlements(user_id,book_id) VALUES (?,?)",
+            ("other", "nonexistent"),
+        )
+        self.assertFalse(self.can_read("other", "manual"))
+        self.assertFalse(self.can_read("other", "nonexistent"))
+
+    def test_rejection_overrides_existing_entitlement_and_admin_role(self):
+        self.assertTrue(self.can_read("reader", "manual"))
+        self.db.execute(
+            "UPDATE anka_book_moderation SET state='rejected' WHERE book_id='manual'"
+        )
+        for user in ("reader", "admin", None):
+            with self.subTest(user=user):
+                self.assertFalse(self.can_read(user, "manual"))
+
     def test_missing_book_is_never_readable(self):
         self.assertFalse(self.can_read("admin", "nonexistent"))
 
