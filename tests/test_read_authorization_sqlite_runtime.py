@@ -140,8 +140,8 @@ class ReadAuthorizationRuntimeTests(unittest.TestCase):
                     "UPDATE anka_book_access SET access_mode=? WHERE book_id='manual'",
                     (mode,),
                 )
-                for user in (None, "reader", "other"):
-                    # An existing manual entitlement must not bypass invalid policy.
+                for user in (None, "reader", "other", "admin", "disabled_admin"):
+                    # Neither an existing entitlement nor an admin role may bypass invalid policy.
                     self.assertFalse(self.can_read(user, "manual"))
 
     def test_explicit_free_access_remains_public(self):
