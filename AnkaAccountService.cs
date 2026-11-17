@@ -370,6 +370,8 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
           SELECT u.id,b.id,@admin,@reason,strftime('%Y-%m-%dT%H:%M:%fZ','now')
           FROM anka_users u CROSS JOIN books b
           WHERE u.email=@email AND u.disabled=0 AND b.id=@book
+            AND EXISTS(SELECT 1 FROM anka_users reviewer
+                       WHERE reviewer.id=@admin AND reviewer.role='Admin' AND reviewer.disabled=0)
             AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
                            WHERE m.book_id=b.id AND m.state!='approved')
           """;
