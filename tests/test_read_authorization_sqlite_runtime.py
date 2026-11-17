@@ -132,6 +132,24 @@ class ReadAuthorizationRuntimeTests(unittest.TestCase):
                 for user in (None, "reader", "admin"):
                     self.assertFalse(self.can_read(user, "manual"))
 
+    def test_invalid_access_modes_fail_closed(self):
+        """Unknown, empty and null access modes cannot become public books."""
+        for mode in ("MANUAL", "manual ", "", "premium", None):
+            with self.subTest(mode=mode):
+                self.db.execute(
+                    "UPDATE anka_book_access SET access_mode=? WHERE book_id='manual'",
+                    (mode,),
+                )
+                for user in (None, "reader", "other"):
+                    # An existing manual entitlement must not bypass invalid policy.
+                    self.assertFalse(self.can_read(user, "manual"))
+
+    def test_explicit_free_access_remains_public(self):
+        self.db.execute(
+            "UPDATE anka_book_access SET access_mode='free' WHERE book_id='manual'"
+        )
+        self.assertTrue(self.can_read(None, "manual"))
+
     def test_missing_book_is_never_readable(self):
         self.assertFalse(self.can_read("admin", "nonexistent"))
 
