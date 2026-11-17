@@ -1,0 +1,27 @@
+name: ANKA - Independent Security Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tests/**'
+      - 'scripts/**'
+      - '.github/workflows/anka-security-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sqlite-security-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run isolated SQLite and authorization regression tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
