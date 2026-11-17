@@ -20,7 +20,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run isolated SQLite and authorization regression tests
-      - name: Run isolated SQLite and authorization regression tests
         shell: bash
         run: |
           set -o pipefail
