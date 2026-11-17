@@ -44,6 +44,18 @@ class ModerationAuditTests(unittest.TestCase):
         self.assertEqual(record[0:2], ("approved", "admin"))
         self.assertRegex(record[2], r"^\d{4}-\d{2}-\d{2}T")
 
+    def test_disabled_admin_cannot_stamp_audit(self):
+        self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='admin'")
+        changed, record = self.attempt("admin", "approved")
+        self.assertEqual(changed, 0)
+        self.assertEqual(record, ("pending", None, None))
+
+    def test_rejected_review_stamps_audit(self):
+        changed, record = self.attempt("admin", "rejected")
+        self.assertEqual(changed, 1)
+        self.assertEqual(record[0:2], ("rejected", "admin"))
+        self.assertRegex(record[2], r"^\\d{4}-\\d{2}-\\d{2}T")
+
     def test_repeated_review_does_not_overwrite_audit(self):
         self.attempt("admin", "approved")
         original = self.db.execute(
