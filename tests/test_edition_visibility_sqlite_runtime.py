@@ -69,6 +69,20 @@ class EditionVisibilityRuntimeTests(unittest.TestCase):
         self.assertEqual(["az"], self.visible("az"))
         self.assertEqual([], self.visible("tr"))
 
+    def test_null_moderation_state_is_not_public(self):
+        self.db.execute(
+            "UPDATE anka_book_moderation SET state=NULL WHERE book_id='tr'"
+        )
+        self.assertEqual(["az"], self.visible("az"))
+        self.assertEqual([], self.visible("tr"))
+
+    def test_null_source_moderation_cannot_enumerate_other_editions(self):
+        self.db.execute(
+            "UPDATE anka_book_moderation SET state=NULL WHERE book_id='az'"
+        )
+        self.assertEqual([], self.visible("az"))
+        self.assertEqual(["tr"], self.visible("tr"))
+
     def test_missing_source_cannot_enumerate_editions(self):
         self.assertEqual([], self.visible("missing"))
 
