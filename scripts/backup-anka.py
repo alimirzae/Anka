@@ -34,7 +34,7 @@ def main():
         p.error("Existing regular anka.db required; never create an empty production DB")
     destination = args.output_dir.resolve()
     if within(destination, source) or within(source, destination):
-        p.error("Backup directory must be separate from App_Data")
+        p.error("Backup directory must be outside the application tree and separate from App_Data")
     if destination == source.parent or within(destination, source.parent):
         p.error("Backup directory must be outside the application tree")
     destination.mkdir(parents=True, exist_ok=True)
