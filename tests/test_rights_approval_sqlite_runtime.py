@@ -44,6 +44,21 @@ class RightsApprovalSqliteTests(unittest.TestCase):
     def test_inactive_reviewer_cannot_approve(self):
         self.assertEqual(self.review("publisher","I own publication rights",reviewer="reader"), (0,"pending"))
 
+    def test_disabled_admin_cannot_review(self):
+        self.db.execute("INSERT INTO anka_users VALUES('disabled_admin','Admin',1)")
+        for state in ("approved", "rejected"):
+            with self.subTest(state=state):
+                self.assertEqual(self.review("publisher", "I own publication rights", state=state, reviewer="disabled_admin"), (0, "pending"))
+
+    def test_non_pending_submission_cannot_be_reviewed_again(self):
+        for initial in ("approved", "rejected", "withdrawn", ""):
+            with self.subTest(initial=initial):
+                self.db.execute("DELETE FROM anka_book_moderation")
+                self.db.execute("INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,state) VALUES('book','publisher','I own publication rights',?)", (initial,))
+                result = self.db.execute(SQL, {"id": "book", "reviewer": "admin", "state": "approved"})
+                self.assertEqual(result.rowcount, 0)
+                self.assertEqual(self.db.execute("SELECT state FROM anka_book_moderation WHERE book_id='book'").fetchone()[0], initial)
+
     def test_admin_can_reject_invalid_submission(self):
         self.assertEqual(self.review("reader","short",state="rejected"), (1,"rejected"))
 
