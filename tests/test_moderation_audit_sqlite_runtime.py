@@ -54,7 +54,7 @@ class ModerationAuditTests(unittest.TestCase):
         changed, record = self.attempt("admin", "rejected")
         self.assertEqual(changed, 1)
         self.assertEqual(record[0:2], ("rejected", "admin"))
-        self.assertRegex(record[2], r"^\\d{4}-\\d{2}-\\d{2}T")
+        self.assertRegex(record[2], r"^\d{4}-\d{2}-\d{2}T")
 
     def test_repeated_review_does_not_overwrite_audit(self):
         self.attempt("admin", "approved")
