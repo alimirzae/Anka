@@ -393,8 +393,10 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
                AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
                  WHERE m.book_id=b.id AND m.state IS NOT 'approved')
                AND (
-                 NOT EXISTS(SELECT 1 FROM anka_book_access a
-                   WHERE a.book_id=b.id AND a.access_mode='manual')
+                 (NOT EXISTS(SELECT 1 FROM anka_book_access a
+                   WHERE a.book_id=b.id)
+                 OR EXISTS(SELECT 1 FROM anka_book_access a
+                   WHERE a.book_id=b.id AND a.access_mode='free'))
                  OR EXISTS(SELECT 1 FROM anka_manual_entitlements e
                    JOIN anka_users entitled_user ON entitled_user.id=e.user_id
                    WHERE e.book_id=b.id AND e.user_id=@user
