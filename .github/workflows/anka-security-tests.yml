@@ -20,7 +20,19 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run isolated SQLite and authorization regression tests
-        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Run isolated SQLite and authorization regression tests
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest discover -s tests -p 'test_*.py' -v 2>&1 | tee "$RUNNER_TEMP/anka-security-tests.log"
+      - name: Upload security test diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anka-security-tests-diagnostics
+          path: ${{ runner.temp }}/anka-security-tests.log
+          if-no-files-found: warn
+          retention-days: 7
 
   dotnet-build-verification:
     runs-on: ubuntu-latest
