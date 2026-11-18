@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.Data.Sqlite;
+using MySqlConnector;
 
 namespace Anka;
 
@@ -16,7 +16,8 @@ namespace Anka;
 public sealed class AzerbaijaniBookSeedWorker(
     IWebHostEnvironment environment,
     IHttpClientFactory clients,
-    ILogger<AzerbaijaniBookSeedWorker> logger) : BackgroundService
+    ILogger<AzerbaijaniBookSeedWorker> logger,
+    AnkaDatabase database) : BackgroundService
 {
     private static readonly (string Slug, string Title, string Author)[] Works =
     [
@@ -105,8 +106,7 @@ public sealed class AzerbaijaniBookSeedWorker(
     {
         var path = Path.Combine(DataDir, "epubs", id.ToString("N") + ".epub");
         if (!File.Exists(path)) return false;
-        await using var db = new SqliteConnection(new SqliteConnectionStringBuilder {
-            DataSource = Path.Combine(DataDir, "anka.db") }.ToString());
+        await using var db = database.CreateConnection();
         await db.OpenAsync(ct);
         await using var cmd = db.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM books WHERE id=@id";
@@ -129,14 +129,14 @@ public sealed class AzerbaijaniBookSeedWorker(
             CreateEpub(tmp, id, title, author, language, content,
                 "https://az.wikisource.org/wiki/" + slug);
             File.Move(tmp, path, true);
-            await using var db = new SqliteConnection(new SqliteConnectionStringBuilder {
-                DataSource = Path.Combine(DataDir, "anka.db") }.ToString());
+            await using var db = database.CreateConnection();
             await db.OpenAsync(ct);
             await using var cmd = db.CreateCommand();
             cmd.CommandText = """
-                INSERT OR REPLACE INTO books
+                INSERT INTO books
                   (id,title,author,language,original_script,filename,bytes,created_utc)
-                VALUES (@id,@title,@author,@lang,@script,@filename,@bytes,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                VALUES (@id,@title,@author,@lang,@script,@filename,@bytes,DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ'))
+                ON DUPLICATE KEY UPDATE title=VALUES(title),author=VALUES(author),filename=VALUES(filename),bytes=VALUES(bytes)
                 """;
             cmd.Parameters.AddWithValue("@id", id.ToString());
             cmd.Parameters.AddWithValue("@title", title);
