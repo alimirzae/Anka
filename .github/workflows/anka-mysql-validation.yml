@@ -1,0 +1,40 @@
+name: ANKA MySQL transition - validate only
+on:
+  push:
+    branches: [feature/mysql-transition]
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - 'sql/**'
+      - 'scripts/migrate-sqlite-to-mysql.py'
+      - '.github/workflows/anka-mysql-validation.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore MySQL connector
+        run: |
+          dotnet restore .\Anka.csproj
+          if ($LASTEXITCODE -ne 0) { throw "Restore failed" }
+      - name: Build .NET 10 release
+        run: |
+          dotnet build .\Anka.csproj -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "MySQL build failed" }
+      - name: Syntax-check migration script
+        run: |
+          $candidates = @("C:\python\python.exe","C:\Program Files\PyManager\python.exe")
+          $python = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $python) { throw "Python 3 missing for migration validation" }
+          & $python -c "import ast,pathlib; ast.parse(pathlib.Path('scripts/migrate-sqlite-to-mysql.py').read_text(encoding='utf-8'))"
+          if ($LASTEXITCODE -ne 0) { throw "Migration script has syntax errors" }
+      - name: No deployment from migration branch
+        run: Write-Host "Validation only. MySQL production cutover requires approved backup and verified data transfer."
