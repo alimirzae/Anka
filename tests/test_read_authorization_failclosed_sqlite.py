@@ -79,5 +79,15 @@ class ReadAuthorizationSqliteTests(unittest.TestCase):
                     self.assertFalse(self.can_read(user))
 
 
+    def test_conflicting_free_and_manual_rows_are_denied_for_every_role(self):
+        self.db.execute("INSERT INTO anka_book_moderation VALUES('book','approved')")
+        self.db.execute("INSERT INTO anka_book_access VALUES('book','free')")
+        self.db.execute("INSERT INTO anka_book_access VALUES('book','manual')")
+        self.db.execute("INSERT INTO anka_manual_entitlements VALUES('book','reader')")
+        for user in ("", "reader", "admin"):
+            with self.subTest(user=user):
+                self.assertFalse(self.can_read(user))
+
+
 if __name__ == "__main__":
     unittest.main()
