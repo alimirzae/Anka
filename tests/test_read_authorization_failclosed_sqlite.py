@@ -99,6 +99,14 @@ class ReadAuthorizationSqliteTests(unittest.TestCase):
                 for user in ("", "reader", "admin"):
                     self.assertFalse(self.can_read(user))
 
+    def test_moderated_book_without_access_policy_is_not_public(self):
+        # A missing policy must not silently grant free access to new submissions.
+        self.db.execute("INSERT INTO anka_book_moderation VALUES('book','approved')")
+        self.db.execute("INSERT INTO anka_manual_entitlements VALUES('book','reader')")
+        for user in ("", "reader", "admin"):
+            with self.subTest(user=user):
+                self.assertFalse(self.can_read(user))
+
     def test_legacy_unmoderated_book_remains_readable_without_policy(self):
         # Existing pre-moderation EPUBs must not disappear during additive migration.
         for user in ("", "reader"):
