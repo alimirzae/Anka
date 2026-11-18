@@ -117,6 +117,33 @@ class RightsApprovalSqliteTests(unittest.TestCase):
                     ("pending", None, None),
                 )
 
+    def test_malicious_identifiers_cannot_bypass_moderation_authorization(self):
+        # Identifier values must remain bound SQL parameters, never SQL fragments.
+        payloads = ("admin' OR 1=1 --", "publisher' OR 1=1 --",
+                    "book' OR 1=1 --", "'; DROP TABLE anka_users; --")
+        for payload in payloads:
+            with self.subTest(payload=payload):
+                self.assertEqual(
+                    self.review("publisher", "I own publication rights", reviewer=payload),
+                    (0, "pending"),
+                )
+                self.db.execute("DELETE FROM anka_book_moderation")
+                self.db.execute(
+                    "INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,state) "
+                    "VALUES('book',?,'I own publication rights','pending')", (payload,)
+                )
+                result = self.db.execute(SQL, {
+                    "id": "book", "reviewer": "admin", "state": "approved"
+                })
+                self.assertEqual(result.rowcount, 0)
+                self.assertEqual(
+                    self.db.execute("SELECT state FROM anka_book_moderation WHERE book_id='book'").fetchone(),
+                    ("pending",),
+                )
+                self.assertEqual(
+                    self.db.execute("SELECT COUNT(*) FROM anka_users").fetchone()[0], 4
+                )
+
     def test_admin_can_reject_invalid_submission(self):
         self.assertEqual(self.review("reader","short",state="rejected"), (1,"rejected"))
 
