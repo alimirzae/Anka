@@ -31,12 +31,17 @@ class BookReviewAuthorizationTests(unittest.TestCase):
                                     disabled INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE anka_book_moderation(
                 book_id TEXT PRIMARY KEY, state TEXT NOT NULL,
+                rights_statement TEXT, uploader_id TEXT,
                 reviewed_by TEXT, reviewed_utc TEXT);
             INSERT INTO anka_users(id,role,disabled) VALUES
                 ('admin','Admin',0),('disabled_admin','Admin',1),
                 ('reader','Reader',0),('publisher','Publisher',0);
-            INSERT INTO anka_book_moderation(book_id,state) VALUES
-                ('pending','pending'),('approved','approved'),('rejected','rejected');
+            INSERT INTO anka_book_moderation(book_id,state,rights_statement,uploader_id) VALUES
+                ('pending','pending','Licensed by the copyright holder','publisher'),
+                ('approved','approved','Licensed by the copyright holder','publisher'),
+                ('rejected','rejected','Licensed by the copyright holder','publisher'),
+                ('no_rights','pending',NULL,'publisher'),
+                ('no_uploader','pending','Licensed by the copyright holder','missing');
         """)
         self.sql = review_sql()
 
@@ -67,6 +72,16 @@ class BookReviewAuthorizationTests(unittest.TestCase):
             with self.subTest(reviewer=reviewer):
                 self.assertEqual(0, self.review("pending", reviewer))
                 self.assertEqual(("pending", None), self.state("pending"))
+
+    def test_approval_requires_rights_and_active_uploader(self):
+        for book in ('no_rights', 'no_uploader'):
+            with self.subTest(book=book):
+                self.assertEqual(0, self.review(book, 'admin'))
+                self.assertEqual(('pending', None), self.state(book))
+
+    def test_rejection_allowed_without_valid_rights(self):
+        self.assertEqual(1, self.review('no_rights', 'admin', 'rejected'))
+        self.assertEqual(('rejected', 'admin'), self.state('no_rights'))
 
     def test_already_reviewed_and_missing_books_denied(self):
         for book in ("approved", "rejected", "missing"):
