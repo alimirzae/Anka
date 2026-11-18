@@ -12,6 +12,8 @@ class ModerationAuditTests(unittest.TestCase):
     def setUp(self):
         self.db = sqlite3.connect(":memory:")
         self.db.executescript("""
+          CREATE TABLE books(id TEXT PRIMARY KEY);
+          INSERT INTO books(id) VALUES ('book');
           CREATE TABLE anka_users(id TEXT PRIMARY KEY,role TEXT,disabled INTEGER);
           CREATE TABLE anka_book_moderation(book_id TEXT PRIMARY KEY,uploader_id TEXT,
             rights_statement TEXT,state TEXT,reviewed_by TEXT,reviewed_utc TEXT);
