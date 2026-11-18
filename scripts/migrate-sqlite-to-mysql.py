@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import a verified, standalone ANKA SQLite snapshot into an EMPTY MySQL database.
+r"""Import a verified, standalone ANKA SQLite snapshot into an EMPTY MySQL database.
 
 Requires: pip install mysql-connector-python
 Example (PowerShell):
@@ -96,7 +96,9 @@ def main():
     try:
         with closing(conn.cursor()) as cur:
             schema_path = Path(__file__).resolve().parents[1] / "sql" / "mysql-schema.sql"
-            for statement in schema_path.read_text(encoding="utf-8").split(";"):
+            sql_lines = [line for line in schema_path.read_text(encoding="utf-8").splitlines()
+                         if not line.lstrip().startswith("--")]
+            for statement in "\n".join(sql_lines).split(";"):
                 if "CREATE TABLE" in statement.upper():
                     cur.execute(statement)
             conn.commit()  # DDL commits implicitly; only the fresh empty target is allowed.
