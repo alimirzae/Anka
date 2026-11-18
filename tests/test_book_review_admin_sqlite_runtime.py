@@ -106,6 +106,27 @@ class BookReviewAuthorizationTests(unittest.TestCase):
                 self.assertEqual(int(allowed), self.review("pending", "admin"))
                 self.assertEqual("approved" if allowed else "pending", self.state("pending")[0])
 
+    def test_admin_owned_submission_requires_active_uploader(self):
+        """An administrator may submit a book, but losing that role blocks approval."""
+        self.db.execute(
+            "UPDATE anka_book_moderation SET uploader_id='admin' WHERE book_id='pending'"
+        )
+        self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='admin'")
+        self.assertEqual(0, self.review("pending", "admin"))
+        self.assertEqual(("pending", None), self.state("pending"))
+        self.db.execute("UPDATE anka_users SET disabled=0 WHERE id='admin'")
+        self.assertEqual(1, self.review("pending", "admin"))
+        self.assertEqual(("approved", "admin"), self.state("pending"))
+
+    def test_publisher_reinstatement_does_not_auto_approve(self):
+        """Restoring a publisher account must not silently publish pending content."""
+        self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='publisher'")
+        self.assertEqual(0, self.review("pending", "admin"))
+        self.db.execute("UPDATE anka_users SET disabled=0 WHERE id='publisher'")
+        self.assertEqual(("pending", None), self.state("pending"))
+        self.assertEqual(1, self.review("pending", "admin"))
+        self.assertEqual(("approved", "admin"), self.state("pending"))
+
     def test_rejection_does_not_require_active_uploader(self):
         """An administrator can reject invalid submissions without granting access."""
         for book in ("no_rights", "no_uploader"):
