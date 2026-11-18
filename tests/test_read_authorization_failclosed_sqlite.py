@@ -89,5 +89,20 @@ class ReadAuthorizationSqliteTests(unittest.TestCase):
                 self.assertFalse(self.can_read(user))
 
 
+    def test_mixed_approved_and_unapproved_moderation_rows_fail_closed(self):
+        self.db.execute("INSERT INTO anka_book_access VALUES('book','free')")
+        for state in ("pending", "rejected", "withdrawn", None):
+            with self.subTest(state=state):
+                self.db.execute("DELETE FROM anka_book_moderation")
+                self.db.execute("INSERT INTO anka_book_moderation VALUES('book','approved')")
+                self.db.execute("INSERT INTO anka_book_moderation VALUES('book',?)", (state,))
+                for user in ("", "reader", "admin"):
+                    self.assertFalse(self.can_read(user))
+
+    def test_legacy_unmoderated_book_remains_readable_without_policy(self):
+        # Existing pre-moderation EPUBs must not disappear during additive migration.
+        for user in ("", "reader"):
+            self.assertTrue(self.can_read(user))
+
 if __name__ == "__main__":
     unittest.main()
