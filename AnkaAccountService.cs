@@ -294,11 +294,11 @@ public sealed class AnkaAccountService(AnkaDatabase database)
                AND (NOT EXISTS(SELECT 1 FROM anka_book_moderation m
                      WHERE m.book_id=b.id)
                     OR EXISTS(SELECT 1 FROM anka_book_access a
-                     WHERE a.book_id=b.id AND a.CAST(access_mode AS BINARY) IN (CAST('free' AS BINARY),CAST('manual' AS BINARY))))
+                     WHERE a.book_id=b.id AND CAST(a.access_mode AS BINARY) IN (CAST('free' AS BINARY),CAST('manual' AS BINARY))))
                AND NOT EXISTS(SELECT 1 FROM anka_book_access policy
                       WHERE policy.book_id=b.id
                         AND (policy.access_mode IS NULL
-                             OR policy.access_mode NOT IN ('free','manual')))
+                             OR CAST(policy.access_mode AS BINARY) NOT IN (CAST('free' AS BINARY),CAST('manual' AS BINARY))))
                AND NOT (EXISTS(SELECT 1 FROM anka_book_access f
                       WHERE f.book_id=b.id AND CAST(f.access_mode AS BINARY)=CAST('free' AS BINARY))
                  AND EXISTS(SELECT 1 FROM anka_book_access m
