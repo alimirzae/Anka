@@ -83,6 +83,27 @@ class BookReviewAuthorizationTests(unittest.TestCase):
         self.assertEqual(1, self.review('no_rights', 'admin', 'rejected'))
         self.assertEqual(('rejected', 'admin'), self.state('no_rights'))
 
+    def test_approval_denied_after_uploader_role_revoked_or_disabled(self):
+        for change in ("UPDATE anka_users SET role='Reader' WHERE id='publisher'",
+                       "UPDATE anka_users SET disabled=1 WHERE id='publisher'"):
+            with self.subTest(change=change):
+                self.db.execute(change)
+                self.assertEqual(0, self.review("pending", "admin"))
+                self.assertEqual(("pending", None), self.state("pending"))
+                self.db.execute("UPDATE anka_users SET role='Publisher',disabled=0 WHERE id='publisher'")
+
+    def test_rights_statement_length_and_whitespace_boundaries(self):
+        for statement, allowed in (("", False), ("   ", False),
+                                   ("x" * 11, False), ("x" * 12, True),
+                                   ("x" * 2000, True), ("x" * 2001, False)):
+            with self.subTest(length=len(statement)):
+                self.db.execute(
+                    "UPDATE anka_book_moderation SET state='pending',reviewed_by=NULL,rights_statement=? WHERE book_id='pending'",
+                    (statement,),
+                )
+                self.assertEqual(int(allowed), self.review("pending", "admin"))
+                self.assertEqual("approved" if allowed else "pending", self.state("pending")[0])
+
     def test_already_reviewed_and_missing_books_denied(self):
         for book in ("approved", "rejected", "missing"):
             with self.subTest(book=book):
