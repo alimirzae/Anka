@@ -68,7 +68,7 @@
      FROM books b LEFT JOIN anka_editions e ON e.book_id=b.id
      LEFT JOIN anka_works w ON w.id=e.work_id
      WHERE b.id=@id AND NOT EXISTS(
-       SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')
+       SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND NOT (CAST(m.state AS BINARY) <=> CAST('approved' AS BINARY)))
    """;
    cmd.Parameters.AddWithValue("@id",Id.ToString());
    await using var r=await cmd.ExecuteReaderAsync();
