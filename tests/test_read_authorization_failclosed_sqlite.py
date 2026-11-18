@@ -112,5 +112,26 @@ class ReadAuthorizationSqliteTests(unittest.TestCase):
         for user in ("", "reader"):
             self.assertTrue(self.can_read(user))
 
+    def test_entitlements_are_scoped_to_the_exact_book_and_user(self):
+        # An entitlement for a different book or account cannot authorize this title.
+        self.db.execute("INSERT INTO anka_book_moderation VALUES('book','approved')")
+        self.db.execute("INSERT INTO anka_book_access VALUES('book','manual')")
+        self.db.execute("INSERT INTO books VALUES('other')")
+        self.db.execute("INSERT INTO anka_manual_entitlements VALUES('other','reader')")
+        self.assertFalse(self.can_read("reader"))
+        self.db.execute("INSERT INTO anka_manual_entitlements VALUES('book','someone-else')")
+        self.assertFalse(self.can_read("reader"))
+        self.db.execute("INSERT INTO anka_manual_entitlements VALUES('book','reader')")
+        self.assertTrue(self.can_read("reader"))
+
+    def test_unknown_book_is_never_readable_even_for_admin(self):
+        self.db.execute("DELETE FROM books WHERE id='book'")
+        self.db.execute("INSERT INTO anka_book_moderation VALUES('book','approved')")
+        self.db.execute("INSERT INTO anka_book_access VALUES('book','free')")
+        self.db.execute("INSERT INTO anka_manual_entitlements VALUES('book','reader')")
+        for user in ("", "reader", "admin"):
+            with self.subTest(user=user):
+                self.assertFalse(self.can_read(user))
+
 if __name__ == "__main__":
     unittest.main()
