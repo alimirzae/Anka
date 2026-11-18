@@ -80,6 +80,22 @@ class RightsApprovalSqliteTests(unittest.TestCase):
                     (0, "pending"),
                 )
 
+    def test_denied_review_preserves_existing_audit_fields(self):
+        # A rejected authorization attempt must not forge an approval audit trail.
+        for reviewer in ("reader", "disabled", "missing"):
+            with self.subTest(reviewer=reviewer):
+                self.db.execute("DELETE FROM anka_book_moderation")
+                self.db.execute(
+                    "INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,state,reviewed_by,reviewed_utc) "
+                    "VALUES('book','publisher','I own publication rights','pending',NULL,NULL)"
+                )
+                result = self.db.execute(SQL, {"id": "book", "reviewer": reviewer, "state": "approved"})
+                self.assertEqual(result.rowcount, 0)
+                audit = self.db.execute(
+                    "SELECT state,reviewed_by,reviewed_utc FROM anka_book_moderation WHERE book_id='book'"
+                ).fetchone()
+                self.assertEqual(audit, ("pending", None, None))
+
     def test_admin_can_reject_invalid_submission(self):
         self.assertEqual(self.review("reader","short",state="rejected"), (1,"rejected"))
 
