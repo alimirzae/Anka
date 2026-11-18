@@ -47,6 +47,8 @@ jobs:
         run: |
           dotnet restore Anka.csproj
           dotnet build Anka.csproj -c Release --no-restore -warnaserror
+      - name: Verify isolated SQLite backup and security regressions
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Make disposable source snapshot
         run: |
           mkdir -p /tmp/anka-mysql-fixture
