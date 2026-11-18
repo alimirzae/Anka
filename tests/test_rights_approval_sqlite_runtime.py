@@ -70,6 +70,16 @@ class RightsApprovalSqliteTests(unittest.TestCase):
         self.db.execute("UPDATE anka_users SET role='Reader' WHERE id='publisher'")
         self.assertEqual(self.review("publisher", "I own publication rights"), (0, "pending"))
 
+    def test_deleted_book_cannot_be_approved_or_rejected(self):
+        # A stale moderation row must not be actionable after its book is deleted.
+        self.db.execute("DELETE FROM books WHERE id='book'")
+        for decision in ("approved", "rejected"):
+            with self.subTest(decision=decision):
+                self.assertEqual(
+                    self.review("publisher", "I own publication rights", state=decision),
+                    (0, "pending"),
+                )
+
     def test_admin_can_reject_invalid_submission(self):
         self.assertEqual(self.review("reader","short",state="rejected"), (1,"rejected"))
 
