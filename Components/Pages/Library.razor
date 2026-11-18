@@ -2,7 +2,7 @@
 @implements IDisposable
 @inject UiText L
 @inject NavigationManager Nav
-@inject IWebHostEnvironment HostEnvironment
+@inject AnkaDatabase Database
 
 <section class="showcase">
  <div class="showcase-copy">
@@ -110,12 +110,10 @@
  {
   try
   {
-   var path=Path.Combine(HostEnvironment.ContentRootPath,"App_Data","anka.db");
-   await using var db=new Microsoft.Data.Sqlite.SqliteConnection(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{
-    DataSource=path,Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite}.ToString());
+   await using var db=Database.CreateConnection();
    await db.OpenAsync();
    await using var cmd=db.CreateCommand();
-   cmd.CommandText="SELECT id,title,author,language,original_script,bytes FROM books b WHERE NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved') ORDER BY created_utc DESC";
+   cmd.CommandText="SELECT id,title,author,language,original_script,bytes FROM books b WHERE NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND NOT (CAST(m.state AS BINARY) <=> CAST('approved' AS BINARY))) ORDER BY created_utc DESC";
    await using var reader=await cmd.ExecuteReaderAsync();
    while(await reader.ReadAsync())books.Add(new BookListItem(reader.GetString(0),reader.GetString(1),reader.GetString(2),reader.GetString(3),reader.GetString(4),reader.GetInt64(5)));
   }

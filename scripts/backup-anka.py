@@ -12,6 +12,7 @@ import os
 import shutil
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -43,10 +44,10 @@ def main():
     target.mkdir(exist_ok=False)
     temporary = target / "anka.db.partial"
     try:
-        with sqlite3.connect("file:" + database.as_posix() + "?mode=ro", uri=True, timeout=30) as src:
-            with sqlite3.connect(str(temporary), timeout=30) as dst:
+        with closing(sqlite3.connect("file:" + database.as_posix() + "?mode=ro", uri=True, timeout=30)) as src:
+            with closing(sqlite3.connect(str(temporary), timeout=30)) as dst:
                 src.backup(dst, pages=256, sleep=0.1)
-        with sqlite3.connect("file:" + temporary.as_posix() + "?mode=ro", uri=True) as verify:
+        with closing(sqlite3.connect("file:" + temporary.as_posix() + "?mode=ro&immutable=1", uri=True)) as verify:
             result = verify.execute("PRAGMA integrity_check").fetchone()[0]
         if result != "ok":
             raise RuntimeError("SQLite backup integrity check failed: " + result)

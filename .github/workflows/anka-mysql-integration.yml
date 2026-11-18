@@ -1,0 +1,103 @@
+name: ANKA MySQL integration (isolated)
+on:
+  push:
+    branches: [feature/mysql-transition]
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.cs'
+      - '**/*.razor'
+      - 'sql/**'
+      - 'scripts/migrate-sqlite-to-mysql.py'
+      - '.github/workflows/anka-mysql-integration.yml'
+permissions:
+  contents: read
+jobs:
+  mysql-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only-root-password
+          MYSQL_DATABASE: anka_ci
+          MYSQL_USER: anka_ci
+          MYSQL_PASSWORD: ci-only-app-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root --password=ci-only-root-password"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      ConnectionStrings__AnkaMySql: "Server=127.0.0.1;Port=3306;Database=anka_ci;User ID=anka_ci;Password=ci-only-app-password;CharSet=utf8mb4;"
+      ANKA_MYSQL_PASSWORD: ci-only-app-password
+      ASPNETCORE_ENVIRONMENT: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install migration dependency
+        run: python -m pip install mysql-connector-python
+      - name: Build
+        run: |
+          dotnet restore Anka.csproj
+          dotnet build Anka.csproj -c Release --no-restore -warnaserror
+      - name: Verify isolated SQLite backup and EPUB tests
+        run: |
+          python -m unittest discover -s tests -p 'test_backup_anka.py' -v
+          python -m unittest discover -s tests -p 'test_verify_anka_backup.py' -v
+          python -m unittest discover -s tests -p 'test_epub_guard_regression.py' -v
+      # SQLite-specific SQL-runtime tests need a MySQL-specific replacement;
+      # do not treat those old SQLite tests as passing against the new provider.
+      - name: Make disposable source snapshot
+        run: |
+          mkdir -p /tmp/anka-mysql-fixture
+          python - <<'PY'
+          import sqlite3
+          with sqlite3.connect('/tmp/anka-mysql-fixture/anka.db') as c:
+              c.execute('CREATE TABLE books (id TEXT PRIMARY KEY,title TEXT NOT NULL,author TEXT NOT NULL,language TEXT NOT NULL,original_script TEXT NOT NULL,filename TEXT NOT NULL,bytes INTEGER NOT NULL,created_utc TEXT NOT NULL)')
+              c.execute('CREATE TABLE anka_book_moderation (book_id TEXT PRIMARY KEY,uploader_id TEXT NOT NULL,rights_statement TEXT NOT NULL,state TEXT NOT NULL,reviewed_by TEXT,created_utc TEXT NOT NULL,reviewed_utc TEXT)')
+              states = [(1,None), (2,'approved'), (3,'APPROVED'), (4,'approved '), (5,'pending'), (6,'rejected')]
+              for number,state in states:
+                  book_id = str(number).zfill(8)+'-1111-1111-1111-111111111111'
+                  filename = str(number).zfill(32)+'.epub'
+                  c.execute('INSERT INTO books VALUES (?,?,?,?,?,?,?,?)',(book_id,'تورکجه آزمایشی '+str(number),'آزمایش','az-Arab','Arabic',filename,100,'2026-11-18T00:00:00Z'))
+                  if state is not None:
+                      c.execute('INSERT INTO anka_book_moderation VALUES (?,?,?,?,?,?,?)',(book_id,'00000000-0000-0000-0000-000000000000','I hold publication rights',state,None,'2026-11-18T00:00:00Z',None))
+          PY
+      - name: Dry-run and migrate into empty temporary MySQL
+        run: |
+          python scripts/migrate-sqlite-to-mysql.py --sqlite-snapshot /tmp/anka-mysql-fixture/anka.db --database anka_ci --user anka_ci
+          python scripts/migrate-sqlite-to-mysql.py --sqlite-snapshot /tmp/anka-mysql-fixture/anka.db --database anka_ci --user anka_ci --apply
+      - name: Production-mode startup and auth smoke test
+        run: |
+          set -euo pipefail
+          dotnet run --project Anka.csproj -c Release --no-build --no-launch-profile --urls http://127.0.0.1:52639 >/tmp/anka-mysql-start.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          ready=0
+          for i in $(seq 1 35); do
+            if curl -fsS http://127.0.0.1:52639/api/health -o /tmp/health.json; then ready=1; break; fi
+            if ! kill -0 "$pid" 2>/dev/null; then cat /tmp/anka-mysql-start.log; exit 1; fi
+            sleep 1
+          done
+          if [ "$ready" != "1" ]; then cat /tmp/anka-mysql-start.log; exit 1; fi
+          curl -fsS http://127.0.0.1:52639/api/books -o /tmp/books.json
+          python - <<'PY'
+          import json
+          with open('/tmp/books.json') as f: books=json.load(f)
+          visible={book['id'] for book in books}
+          assert '00000001-1111-1111-1111-111111111111' in visible, 'Legacy public edition hidden'
+          assert '00000002-1111-1111-1111-111111111111' in visible, 'Exactly approved edition hidden'
+          for number in (3,4,5,6):
+              assert str(number).zfill(8)+'-1111-1111-1111-111111111111' not in visible, 'Unapproved edition leaked'
+          PY
+          [ "$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:52639/api/books)" = "401" ]
+          [ "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:52639/api/admin/publishers)" = "401" ]
+          [ "$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:52639/api/account/test-login)" = "404" ]
+          echo 'MySQL migration + runtime/auth smoke: PASS'

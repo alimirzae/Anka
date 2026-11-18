@@ -1,7 +1,7 @@
 @page "/store/book/{Id:guid}"
 @implements IDisposable
 @inject UiText L
-@inject IWebHostEnvironment HostEnvironment
+@inject AnkaDatabase Database
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
 @inject AnkaAccountService Accounts
@@ -57,9 +57,7 @@
  protected override void OnInitialized()=>L.Changed+=Refresh;
  private void Refresh()=>_=InvokeAsync(StateHasChanged);
  protected override async Task OnParametersSetAsync(){
-  await using var db=new Microsoft.Data.Sqlite.SqliteConnection(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{
-   DataSource=Path.Combine(HostEnvironment.ContentRootPath,"App_Data","anka.db"),
-   Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite}.ToString());
+  await using var db=Database.CreateConnection();
   try{
    await db.OpenAsync();
    await using var cmd=db.CreateCommand();
@@ -70,7 +68,7 @@
      FROM books b LEFT JOIN anka_editions e ON e.book_id=b.id
      LEFT JOIN anka_works w ON w.id=e.work_id
      WHERE b.id=@id AND NOT EXISTS(
-       SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')
+       SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND NOT (CAST(m.state AS BINARY) <=> CAST('approved' AS BINARY)))
    """;
    cmd.Parameters.AddWithValue("@id",Id.ToString());
    await using var r=await cmd.ExecuteReaderAsync();
@@ -78,7 +76,7 @@
     book=new BookListItem(r.GetString(0),r.GetString(1),r.GetString(2),r.GetString(3),r.GetString(4),r.GetInt64(5),r.GetString(6));
     description=r.GetString(7);translator=r.GetString(8);publisherName=r.GetString(9);
    }
-  }catch(Microsoft.Data.Sqlite.SqliteException){book=null;}
+  }catch(MySqlConnector.MySqlException){book=null;}
   editions=book is null?Array.Empty<AnkaEditionInfo>():await Accounts.OtherEditionsAsync(Id.ToString());
  }
  private static string LanguageName(string lang)=>lang switch{

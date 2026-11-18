@@ -3,7 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
-using Microsoft.Data.Sqlite;
+using MySqlConnector;
 
 namespace Anka;
 
@@ -14,18 +14,15 @@ public sealed record ReadingDocument(string Title, string Author, string Languag
 /// Server-side EPUB text reader: no external JavaScript CDN and no HTML from the EPUB
 /// is ever inserted into the DOM. All book text is encoded by Blazor.
 /// </summary>
-public sealed class EpubReadingService(IWebHostEnvironment environment, ILogger<EpubReadingService> log, AnkaAccountService accounts, IHttpContextAccessor httpContextAccessor)
+public sealed class EpubReadingService(IWebHostEnvironment environment, ILogger<EpubReadingService> log, AnkaAccountService accounts, IHttpContextAccessor httpContextAccessor, AnkaDatabase database)
 {
     public async Task<ReadingDocument> OpenAsync(Guid id, CancellationToken ct = default, string? authenticatedUserId = null)
     {
         var viewer=authenticatedUserId ?? httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if(!await accounts.CanReadAsync(viewer,id.ToString()))throw new UnauthorizedAccessException("Access to this edition is not granted.");
-        var cs = new SqliteConnectionStringBuilder {
-            DataSource = Path.Combine(environment.ContentRootPath, "App_Data", "anka.db"),
-            Mode = SqliteOpenMode.ReadWrite
-        }.ToString();
+
         string filename, title, author, language;
-        await using (var db = new SqliteConnection(cs))
+        await using (var db = database.CreateConnection())
         {
             await db.OpenAsync(ct);
             await using var cmd = db.CreateCommand();

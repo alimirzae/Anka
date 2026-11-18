@@ -1,6 +1,6 @@
 # ANKA — Product Roadmap / نقشه راه اجرایی
 
-**Status:** active · **Canonical branch:** `main` · **Deployment:** `anka.iyashil.com` (IIS) · **Initial database:** SQLite.
+**Status:** active · **Canonical branch:** `main` · **Deployment:** `anka.iyashil.com` (IIS) · **Production database:** SQLite until verified MySQL cutover; **target database:** MySQL (migration branch `feature/mysql-transition`).
 
 ## Product scope and language rules
 ANKA is a minimalist, multilingual digital book platform with these three primary product areas:
@@ -22,7 +22,7 @@ Preserve the existing uncluttered ANKA identity (white background, restrained na
 - [x] Initial Reader/Publisher role claims and server-side upload restriction; **pending:** administrative role workflow, editor roles, role revocation validation and full multi-tenant authorization audit.
 - [x] Remove anonymous access to `POST /api/books` (Publisher/Admin role required, same-origin guard); **pending:** license declaration, pending-content review workflow and ownership checks across all reader/file endpoints.
 - [ ] Automated tests for auth, authorization, persistent data, uploads, and migration; working backup/restore.
-- [ ] Database migrations preserve existing SQLite and EPUB assets. Design MySQL migration, do not destructively switch in production.
+- [~] MySQL transition developed in isolated branch: `AnkaDatabase.cs`, `sql/mysql-schema.sql`, `scripts/migrate-sqlite-to-mysql.py` and `docs/ANKA_MYSQL_MIGRATION.md`. Merging and cutover remain blocked on independent backup verification, Windows CI build, full row fingerprints and runtime tests. Existing SQLite and EPUB assets must not be overwritten.
 
 ### P1 — ANKA Store (in progress)
 - [x] Minimal public catalog and book detail prototypes.
@@ -90,3 +90,9 @@ Preserve the existing uncluttered ANKA identity (white background, restrained na
 - DataProtection keys and the SQLite App_Data directory must be backed up and ACL-protected. App_Data is excluded from publish artifacts.
 - See `docs/ANKA_ADMIN_SETUP.md` for one-time manager activation.
 - **Phase 1–3 remain partially incomplete**, notably email/phone verification/password reset, comprehensive tests and edit/revoke roles, formal author/publisher entities and licensed translations, true viewport-reflow pagination and PDF/audio support, full submission history/withdrawal, verified financial checkout/credit ledger, advanced search and reviews. Do not claim the product finished until those are implemented and browser-tested.
+
+## 2026-11-18 MySQL transition checkpoint
+- Isolated branch `feature/mysql-transition` switches all existing structured-data SQL calls (account, publisher, reader, imported books and catalog) to `MySqlConnector` with environment configuration `ConnectionStrings__AnkaMySql`.
+- MySQL `utf8mb4` schema and empty-target/row-fingerprint SQLite snapshot migration importer added. EPUB binary storage and DataProtection keys remain in `App_Data`; the live SQLite DB remains untouched.
+- Draft PR: https://github.com/alimirzae/Anka/pull/6 — do not merge, publish or change production connections before Windows build and verified migration tests.
+- Previous Windows SQLite backup regression tests failed due to unclosed database handles; must resolve before relying on production snapshots. No production MySQL credentials or completed cutover have been verified.

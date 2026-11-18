@@ -1,7 +1,7 @@
 @page "/store"
 @implements IDisposable
 @inject UiText L
-@inject IWebHostEnvironment HostEnvironment
+@inject AnkaDatabase Database
 @inject NavigationManager Navigation
 
 <div class="anka-market">
@@ -71,9 +71,7 @@
  private void Refresh()=>_=InvokeAsync(StateHasChanged);
  protected override async Task OnInitializedAsync(){
   try{
-   var file=Path.Combine(HostEnvironment.ContentRootPath,"App_Data","anka.db");
-   await using var db=new Microsoft.Data.Sqlite.SqliteConnection(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{
-    DataSource=file,Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite}.ToString());
+   await using var db=Database.CreateConnection();
    await db.OpenAsync();
    await using var cmd=db.CreateCommand();
    cmd.CommandText="""
@@ -81,7 +79,7 @@
      COALESCE(w.category,'General')
      FROM books b LEFT JOIN anka_editions e ON e.book_id=b.id
      LEFT JOIN anka_works w ON w.id=e.work_id
-     WHERE NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')
+     WHERE NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND NOT (CAST(m.state AS BINARY) <=> CAST('approved' AS BINARY)))
      ORDER BY b.created_utc DESC
      """;
    await using var cursor=await cmd.ExecuteReaderAsync();

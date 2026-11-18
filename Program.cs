@@ -9,13 +9,14 @@ using System.Text;
 using System.Xml.Linq;
 using Anka.Components;
 using Anka;
-using Microsoft.Data.Sqlite;
+using MySqlConnector;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 60L * 1024 * 1024);
 builder.Services.AddProblemDetails();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddScoped<UiText>();
+builder.Services.AddSingleton<AnkaDatabase>();
 builder.Services.AddSingleton<AnkaAccountService>();
 builder.Services.AddDataProtection().SetApplicationName("ANKA-Reader")
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath,"App_Data","keys")));
@@ -103,38 +104,11 @@ app.UseAuthorization();
 app.UseRateLimiter();
 app.UseAntiforgery();
 
-// SQLite and uploaded EPUB files live outside wwwroot and survive IIS redeployments.
+// EPUBs and DataProtection keys remain in App_Data; structured data uses MySQL.
 var dataDirectory = Path.Combine(app.Environment.ContentRootPath, "App_Data");
 var storage = Path.Combine(dataDirectory, "epubs");
 Directory.CreateDirectory(storage);
-var databaseFile = Path.Combine(dataDirectory, "anka.db");
-var connectionString = new SqliteConnectionStringBuilder
-{
-    DataSource = databaseFile,
-    Mode = SqliteOpenMode.ReadWriteCreate,
-    Pooling = true,
-    DefaultTimeout = 30
-}.ToString();
-await using (var db = new SqliteConnection(connectionString))
-{
-    await db.OpenAsync();
-    await using var cmd = db.CreateCommand();
-    cmd.CommandText = """
-        CREATE TABLE IF NOT EXISTS books (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            author TEXT NOT NULL,
-            language TEXT NOT NULL,
-            original_script TEXT NOT NULL,
-            filename TEXT NOT NULL,
-            bytes INTEGER NOT NULL,
-            created_utc TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS ix_books_title ON books(title);
-        """;
-    await cmd.ExecuteNonQueryAsync();
-}
-
+var ankaDatabase = app.Services.GetRequiredService<AnkaDatabase>();
 await app.Services.GetRequiredService<AnkaAccountService>().EnsureCreatedAsync();
 // One-time first-admin secret is generated on the IIS server, NEVER sent to visitors.
 // Operators can read this file locally via PowerShell, then remove it after activation.
@@ -297,7 +271,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok", app = "Anka", fr
 app.MapGet("/api/catalog/status", async () =>
 {
     var imported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    await using var db = new SqliteConnection(connectionString);
+    await using var db = ankaDatabase.CreateConnection();
     await db.OpenAsync();
     await using var command = db.CreateCommand();
     command.CommandText = "SELECT id FROM books";
@@ -330,13 +304,13 @@ app.MapGet("/api/books/{id:guid}/reading-status", async (Guid id, HttpContext co
 app.MapGet("/api/books", async () =>
 {
     var books = new List<BookListItem>();
-    await using var db = new SqliteConnection(connectionString);
+    await using var db = ankaDatabase.CreateConnection();
     await db.OpenAsync();
-    await using var cmd = new SqliteCommand("""
+    await using var cmd = new MySqlCommand("""
         SELECT b.id,b.title,b.author,b.language,b.original_script,b.bytes,COALESCE(w.category,'General')
         FROM books b LEFT JOIN anka_editions e ON e.book_id=b.id
         LEFT JOIN anka_works w ON w.id=e.work_id
-        WHERE NOT EXISTS (SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')
+        WHERE NOT EXISTS (SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND NOT (CAST(m.state AS BINARY) <=> CAST('approved' AS BINARY)))
         ORDER BY b.created_utc DESC
         """, db);
     await using var r = await cmd.ExecuteReaderAsync();
@@ -350,9 +324,9 @@ app.MapGet("/api/books/{id:guid}/file", async (Guid id,HttpContext context,AnkaA
     context.Response.Headers["Cache-Control"] = "private, no-store";
     context.Response.Headers["Pragma"] = "no-cache";
     if(!await accounts.CanReadAsync(context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value,id.ToString()))return Results.StatusCode(403);
-    await using var db = new SqliteConnection(connectionString);
+    await using var db = ankaDatabase.CreateConnection();
     await db.OpenAsync();
-    await using var cmd = new SqliteCommand("SELECT filename FROM books WHERE id=@id", db);
+    await using var cmd = new MySqlCommand("SELECT filename FROM books WHERE id=@id", db);
     cmd.Parameters.AddWithValue("@id", id.ToString());
     var name = await cmd.ExecuteScalarAsync() as string;
     if (name is null) return Results.NotFound();
@@ -420,12 +394,12 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
             throw new InvalidDataException("Metadata too long.");
         if (title.Length > 500 || author.Length > 300 || language.Length > 32)
             throw new InvalidDataException("Metadata too long.");
-        await using var db = new SqliteConnection(connectionString);
+        await using var db = ankaDatabase.CreateConnection();
         await db.OpenAsync();
-        await using var transaction = (SqliteTransaction)await db.BeginTransactionAsync();
-        await using var cmd = new SqliteCommand("""
+        await using var transaction = (MySqlTransaction)await db.BeginTransactionAsync();
+        await using var cmd = new MySqlCommand("""
           INSERT INTO books (id,title,author,language,original_script,filename,bytes,created_utc)
-          VALUES (@id,@title,@author,@language,'auto',@file,@bytes,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+          VALUES (@id,@title,@author,@language,'auto',@file,@bytes,DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ'))
         """, db,transaction);
         cmd.Parameters.AddWithValue("@id", id.ToString());
         cmd.Parameters.AddWithValue("@title", title);
@@ -434,17 +408,17 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         cmd.Parameters.AddWithValue("@file", name);
         cmd.Parameters.AddWithValue("@bytes", file.Length);
         await cmd.ExecuteNonQueryAsync();
-        await using var rightsCmd = new SqliteCommand("""
+        await using var rightsCmd = new MySqlCommand("""
           INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,state,created_utc)
-          VALUES(@id,@uploader,@rights,'pending',strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+          VALUES(@id,@uploader,@rights,'pending',DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ'))
         """,db,transaction);
         rightsCmd.Parameters.AddWithValue("@id",id.ToString());
         rightsCmd.Parameters.AddWithValue("@uploader",uploader);
         rightsCmd.Parameters.AddWithValue("@rights",rightsDeclaration);
         await rightsCmd.ExecuteNonQueryAsync();
-        await using var workCmd = new SqliteCommand("""
+        await using var workCmd = new MySqlCommand("""
           INSERT INTO anka_works(id,title,author,description,category,created_utc)
-          VALUES(@id,@title,@author,@description,@category,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+          VALUES(@id,@title,@author,@description,@category,DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ'))
         """,db,transaction);
         workCmd.Parameters.AddWithValue("@id",id.ToString());
         workCmd.Parameters.AddWithValue("@title",title);
@@ -452,7 +426,7 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         workCmd.Parameters.AddWithValue("@description",description);
         workCmd.Parameters.AddWithValue("@category",category);
         await workCmd.ExecuteNonQueryAsync();
-        await using var editionCmd = new SqliteCommand("""
+        await using var editionCmd = new MySqlCommand("""
           INSERT INTO anka_editions(book_id,work_id,language,script,content_status,translator,publisher_name)
           VALUES(@id,@id,@language,@script,'unreviewed',@translator,@publisher)
         """,db,transaction);

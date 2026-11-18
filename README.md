@@ -1,6 +1,8 @@
-# Anka — Blazor Server + SQLite (Phase 1)
+> **Development migration branch:** This version needs `ConnectionStrings__AnkaMySql`, an empty MySQL schema and verified data import before it can run. **Do not deploy directly over the current SQLite IIS site.** See [MySQL migration plan](docs/ANKA_MYSQL_MIGRATION.md).
 
-.NET 10 ASP.NET Core Blazor Server with interactive server rendering, SQLite, and EPUB.js.
+# Anka — Blazor Server / MySQL migration branch
+
+.NET 10 ASP.NET Core Blazor Server with interactive server rendering; MySQL is the target database on `feature/mysql-transition`. The deployed `main` branch remains SQLite until cutover.
 No authentication in the prototype. The upload endpoint is public unless access is restricted at IIS/reverse proxy.
 
 ## Storage

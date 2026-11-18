@@ -5,16 +5,16 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.Data.Sqlite;
+using MySqlConnector;
 
 namespace Anka;
 
 public sealed class CatalogImporter(
     IWebHostEnvironment env,
-    IHttpClientFactory httpFactory)
+    IHttpClientFactory httpFactory,
+    AnkaDatabase database)
 {
     private readonly SemaphoreSlim gate = new(1,1);
-    private string DatabasePath => Path.Combine(env.ContentRootPath, "App_Data", "anka.db");
     private string StoragePath => Path.Combine(env.ContentRootPath, "App_Data", "epubs");
 
     public static Guid BookId(CatalogBook item) =>
@@ -61,14 +61,14 @@ public sealed class CatalogImporter(
             }
             finally { if (File.Exists(temp)) File.Delete(temp); }
 
-            var cs = new SqliteConnectionStringBuilder { DataSource=DatabasePath }.ToString();
-            await using var db = new SqliteConnection(cs);
+            await using var db = database.CreateConnection();
             await db.OpenAsync(token);
             await using var command = db.CreateCommand();
             command.CommandText = """
-                INSERT OR REPLACE INTO books
+                INSERT INTO books
                     (id,title,author,language,original_script,filename,bytes,created_utc)
-                VALUES (@id,@title,@author,'tr','Latin',@filename,@bytes,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                VALUES (@id,@title,@author,'tr','Latin',@filename,@bytes,DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ'))
+                ON DUPLICATE KEY UPDATE title=VALUES(title),author=VALUES(author),filename=VALUES(filename),bytes=VALUES(bytes)
                 """;
             command.Parameters.AddWithValue("@id",id.ToString());
             command.Parameters.AddWithValue("@title",item.Title);
@@ -83,7 +83,7 @@ public sealed class CatalogImporter(
 
     private async Task<bool> DatabaseHasBook(Guid id, CancellationToken ct)
     {
-        await using var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=DatabasePath }.ToString());
+        await using var db = database.CreateConnection();
         await db.OpenAsync(ct);
         await using var cmd = db.CreateCommand();
         cmd.CommandText="SELECT EXISTS(SELECT 1 FROM books WHERE id=@id)";
