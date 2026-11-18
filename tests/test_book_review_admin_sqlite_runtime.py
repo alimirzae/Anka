@@ -27,6 +27,8 @@ class BookReviewAuthorizationTests(unittest.TestCase):
     def setUp(self):
         self.db = sqlite3.connect(":memory:")
         self.db.executescript("""
+            CREATE TABLE books(id TEXT PRIMARY KEY);
+            INSERT INTO books(id) VALUES ('pending'),('approved'),('rejected'),('no_rights'),('no_uploader');
             CREATE TABLE anka_users(id TEXT PRIMARY KEY, role TEXT NOT NULL,
                                     disabled INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE anka_book_moderation(
@@ -103,6 +105,16 @@ class BookReviewAuthorizationTests(unittest.TestCase):
                 )
                 self.assertEqual(int(allowed), self.review("pending", "admin"))
                 self.assertEqual("approved" if allowed else "pending", self.state("pending")[0])
+
+    def test_orphaned_moderation_record_cannot_be_reviewed(self):
+        self.db.execute(
+            "INSERT INTO anka_book_moderation(book_id,state,rights_statement,uploader_id) VALUES (?,?,?,?)",
+            ("orphan", "pending", "Licensed by the copyright holder", "publisher"),
+        )
+        for state in ("approved", "rejected"):
+            with self.subTest(state=state):
+                self.assertEqual(0, self.review("orphan", "admin", state))
+                self.assertEqual(("pending", None), self.state("orphan"))
 
     def test_already_reviewed_and_missing_books_denied(self):
         for book in ("approved", "rejected", "missing"):
