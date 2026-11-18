@@ -98,12 +98,12 @@ public sealed class AnkaAccountService(AnkaDatabase database)
           -- cannot reset their reviewed application to pending.
           INSERT INTO anka_publisher_requests(user_id,statement,state,requested_utc)
           SELECT id,@text,'pending',DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ')
-          FROM anka_users WHERE id=@id AND role='Reader' AND disabled=0
+          FROM anka_users WHERE id=@id AND CAST(role AS BINARY)=CAST('Reader' AS BINARY) AND disabled=0
           ON DUPLICATE KEY UPDATE
-          statement=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND u.role='Reader' AND u.disabled=0),VALUES(statement),statement),
-          state=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND u.role='Reader' AND u.disabled=0),'pending',state),
-          requested_utc=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND u.role='Reader' AND u.disabled=0),VALUES(requested_utc),requested_utc),
-          reviewed_utc=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND u.role='Reader' AND u.disabled=0),NULL,reviewed_utc)
+          statement=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND CAST(u.role AS BINARY)=CAST('Reader' AS BINARY) AND u.disabled=0),VALUES(statement),statement),
+          state=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND CAST(u.role AS BINARY)=CAST('Reader' AS BINARY) AND u.disabled=0),'pending',state),
+          requested_utc=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND CAST(u.role AS BINARY)=CAST('Reader' AS BINARY) AND u.disabled=0),VALUES(requested_utc),requested_utc),
+          reviewed_utc=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND CAST(u.role AS BINARY)=CAST('Reader' AS BINARY) AND u.disabled=0),NULL,reviewed_utc)
           """;
         cmd.Parameters.AddWithValue("@id",userId);cmd.Parameters.AddWithValue("@text",statement);
         return await cmd.ExecuteNonQueryAsync()>0;
@@ -113,14 +113,14 @@ public sealed class AnkaAccountService(AnkaDatabase database)
         await using var db=database.CreateConnection();await db.OpenAsync();
         await using var transaction=await db.BeginTransactionAsync();
         await using var cmd=db.CreateCommand();cmd.Transaction=(MySqlTransaction)transaction;
-        cmd.CommandText="UPDATE anka_publisher_requests SET state=@state,reviewed_utc=DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ') WHERE user_id=@id AND state='pending'";
+        cmd.CommandText="UPDATE anka_publisher_requests SET state=@state,reviewed_utc=DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ') WHERE user_id=@id AND CAST(state AS BINARY)=CAST('pending' AS BINARY)";
         cmd.Parameters.AddWithValue("@state",approve?"approved":"rejected");
         cmd.Parameters.AddWithValue("@id",userId);
         if(await cmd.ExecuteNonQueryAsync()!=1)return false;
         if(approve){
             // Approval and role assignment must succeed together. A disabled or
             // already-promoted account must not receive an approved request.
-            cmd.CommandText="UPDATE anka_users SET role='Publisher' WHERE id=@id AND role='Reader' AND disabled=0";
+            cmd.CommandText="UPDATE anka_users SET role='Publisher' WHERE id=@id AND CAST(role AS BINARY)=CAST('Reader' AS BINARY) AND disabled=0";
             if(await cmd.ExecuteNonQueryAsync()!=1){
                 await transaction.RollbackAsync();
                 return false;
@@ -133,7 +133,7 @@ public sealed class AnkaAccountService(AnkaDatabase database)
     {
         await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="SELECT COUNT(*) FROM anka_users WHERE id=@id AND role=@role AND disabled=0";
+        cmd.CommandText="SELECT COUNT(*) FROM anka_users WHERE id=@id AND CAST(role AS BINARY)=CAST(@role AS BINARY) AND disabled=0";
         cmd.Parameters.AddWithValue("@id",userId);cmd.Parameters.AddWithValue("@role",role);
         return Convert.ToInt32(await cmd.ExecuteScalarAsync())==1;
     }
@@ -180,7 +180,7 @@ public sealed class AnkaAccountService(AnkaDatabase database)
     {
         await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="UPDATE anka_book_moderation SET state=@state,reviewed_by=@reviewer,reviewed_utc=DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ') WHERE book_id=@id AND state='pending' AND ( @state='rejected' OR (length(trim(rights_statement)) BETWEEN 12 AND 2000 AND EXISTS(SELECT 1 FROM anka_users uploader WHERE uploader.id=uploader_id AND uploader.disabled=0 AND uploader.role IN ('Publisher','Admin')))) AND EXISTS(SELECT 1 FROM anka_users reviewer WHERE reviewer.id=@reviewer AND reviewer.role='Admin' AND reviewer.disabled=0)";
+        cmd.CommandText="UPDATE anka_book_moderation SET state=@state,reviewed_by=@reviewer,reviewed_utc=DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ') WHERE book_id=@id AND CAST(state AS BINARY)=CAST('pending' AS BINARY) AND ( @state='rejected' OR (length(trim(rights_statement)) BETWEEN 12 AND 2000 AND EXISTS(SELECT 1 FROM anka_users uploader WHERE uploader.id=uploader_id AND uploader.disabled=0 AND CAST(uploader.role AS BINARY) IN (CAST('Publisher' AS BINARY), CAST('Admin' AS BINARY))))) AND EXISTS(SELECT 1 FROM anka_users reviewer WHERE reviewer.id=@reviewer AND CAST(reviewer.role AS BINARY)=CAST('Admin' AS BINARY) AND reviewer.disabled=0)";
         cmd.Parameters.AddWithValue("@id",bookId);cmd.Parameters.AddWithValue("@reviewer",reviewerId);
         cmd.Parameters.AddWithValue("@state",approve?"approved":"rejected");
         return await cmd.ExecuteNonQueryAsync()==1;
@@ -189,7 +189,7 @@ public sealed class AnkaAccountService(AnkaDatabase database)
     {
         await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="SELECT EXISTS(SELECT 1 FROM anka_users WHERE role='Admin' AND disabled=0)";
+        cmd.CommandText="SELECT EXISTS(SELECT 1 FROM anka_users WHERE CAST(role AS BINARY)=CAST('Admin' AS BINARY) AND disabled=0)";
         return Convert.ToInt32(await cmd.ExecuteScalarAsync())!=0;
     }
     public async Task<bool> BootstrapAdminAsync(string userId)
@@ -199,7 +199,7 @@ public sealed class AnkaAccountService(AnkaDatabase database)
         cmd.CommandText="""
         UPDATE anka_users SET role='Admin'
         WHERE id=@id AND disabled=0
-          AND NOT EXISTS(SELECT 1 FROM anka_users WHERE role='Admin' AND disabled=0)
+          AND NOT EXISTS(SELECT 1 FROM anka_users WHERE CAST(role AS BINARY)=CAST('Admin' AS BINARY) AND disabled=0)
         """;
         cmd.Parameters.AddWithValue("@id",userId);
         return await cmd.ExecuteNonQueryAsync()==1;
@@ -217,9 +217,9 @@ public sealed class AnkaAccountService(AnkaDatabase database)
           JOIN books b ON b.id=e.book_id
           WHERE current.book_id=@id AND
             NOT EXISTS(SELECT 1 FROM anka_book_moderation source_m
-              WHERE source_m.book_id=current.book_id AND NOT (source_m.state <=> 'approved')) AND
+              WHERE source_m.book_id=current.book_id AND NOT (CAST(source_m.state AS BINARY) <=> CAST('approved' AS BINARY))) AND
             NOT EXISTS(SELECT 1 FROM anka_book_moderation m
-              WHERE m.book_id=b.id AND NOT (m.state <=> 'approved'))
+              WHERE m.book_id=b.id AND NOT (CAST(m.state AS BINARY) <=> CAST('approved' AS BINARY)))
           ORDER BY CASE e.language WHEN 'az-Arab' THEN 0 WHEN 'tr' THEN 1 WHEN 'az-Latn' THEN 2 ELSE 3 END
           """;
         cmd.Parameters.AddWithValue("@id",bookId);
@@ -247,7 +247,7 @@ public sealed class AnkaAccountService(AnkaDatabase database)
           INSERT INTO anka_book_access(book_id,access_mode,updated_utc)
           SELECT id,@mode,DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ') FROM books
           WHERE id=@id AND NOT EXISTS(
-            SELECT 1 FROM anka_book_moderation m WHERE m.book_id=books.id AND NOT (m.state <=> 'approved'))
+            SELECT 1 FROM anka_book_moderation m WHERE m.book_id=books.id AND NOT (CAST(m.state AS BINARY) <=> CAST('approved' AS BINARY)))
           ON DUPLICATE KEY UPDATE access_mode=VALUES(access_mode),updated_utc=VALUES(updated_utc)
           """;
         cmd.Parameters.AddWithValue("@id",bookId);
@@ -268,9 +268,9 @@ public sealed class AnkaAccountService(AnkaDatabase database)
           FROM anka_users u CROSS JOIN books b
           WHERE u.email=@email AND u.disabled=0 AND b.id=@book
             AND EXISTS(SELECT 1 FROM anka_users reviewer
-                       WHERE reviewer.id=@admin AND reviewer.role='Admin' AND reviewer.disabled=0)
+                       WHERE reviewer.id=@admin AND CAST(reviewer.role AS BINARY)=CAST('Admin' AS BINARY) AND reviewer.disabled=0)
             AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
-                           WHERE m.book_id=b.id AND NOT (m.state <=> 'approved'))
+                           WHERE m.book_id=b.id AND NOT (CAST(m.state AS BINARY) <=> CAST('approved' AS BINARY)))
           """;
         cmd.Parameters.AddWithValue("@email",email);
         cmd.Parameters.AddWithValue("@book",bookId);
@@ -288,34 +288,34 @@ public sealed class AnkaAccountService(AnkaDatabase database)
              SELECT 1 FROM books b
              WHERE b.id=@book
                AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
-                 WHERE m.book_id=b.id AND NOT (m.state <=> 'approved'))
+                 WHERE m.book_id=b.id AND NOT (CAST(m.state AS BINARY) <=> CAST('approved' AS BINARY)))
                -- A moderated title must have an explicit policy even when an
                -- entitlement or admin role exists. Legacy unmoderated EPUBs remain readable.
                AND (NOT EXISTS(SELECT 1 FROM anka_book_moderation m
                      WHERE m.book_id=b.id)
                     OR EXISTS(SELECT 1 FROM anka_book_access a
-                     WHERE a.book_id=b.id AND a.access_mode IN ('free','manual')))
+                     WHERE a.book_id=b.id AND a.CAST(access_mode AS BINARY) IN (CAST('free' AS BINARY),CAST('manual' AS BINARY))))
                AND NOT EXISTS(SELECT 1 FROM anka_book_access policy
                       WHERE policy.book_id=b.id
                         AND (policy.access_mode IS NULL
                              OR policy.access_mode NOT IN ('free','manual')))
                AND NOT (EXISTS(SELECT 1 FROM anka_book_access f
-                      WHERE f.book_id=b.id AND f.access_mode='free')
+                      WHERE f.book_id=b.id AND CAST(f.access_mode AS BINARY)=CAST('free' AS BINARY))
                  AND EXISTS(SELECT 1 FROM anka_book_access m
-                      WHERE m.book_id=b.id AND m.access_mode='manual'))
+                      WHERE m.book_id=b.id AND CAST(m.access_mode AS BINARY)=CAST('manual' AS BINARY)))
                AND (
                  ((NOT EXISTS(SELECT 1 FROM anka_book_access a
                    WHERE a.book_id=b.id)
                    AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
                      WHERE m.book_id=b.id))
                  OR EXISTS(SELECT 1 FROM anka_book_access a
-                   WHERE a.book_id=b.id AND a.access_mode='free'))
+                   WHERE a.book_id=b.id AND CAST(a.access_mode AS BINARY)=CAST('free' AS BINARY)))
                  OR EXISTS(SELECT 1 FROM anka_manual_entitlements e
                    JOIN anka_users entitled_user ON entitled_user.id=e.user_id
                    WHERE e.book_id=b.id AND e.user_id=@user
                      AND entitled_user.disabled=0)
                  OR EXISTS(SELECT 1 FROM anka_users u
-                   WHERE u.id=@user AND u.role='Admin' AND u.disabled=0)
+                   WHERE u.id=@user AND CAST(u.role AS BINARY)=CAST('Admin' AS BINARY) AND u.disabled=0)
                )
           )
           """;
