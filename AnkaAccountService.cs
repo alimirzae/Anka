@@ -3,115 +3,14 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.Data.Sqlite;
+using MySqlConnector;
 
 namespace Anka;
 
 /// <summary>Durable local accounts with password hashing, role claims and safe defaults.</summary>
-public sealed class AnkaAccountService(IWebHostEnvironment env)
+public sealed class AnkaAccountService(AnkaDatabase database)
 {
-    private string Connection => new SqliteConnectionStringBuilder {
-        DataSource=Path.Combine(env.ContentRootPath,"App_Data","anka.db"),
-        Mode=SqliteOpenMode.ReadWriteCreate,DefaultTimeout=30
-    }.ToString();
-
-    public async Task EnsureCreatedAsync(CancellationToken ct=default)
-    {
-        await using var db=new SqliteConnection(Connection);
-        await db.OpenAsync(ct);
-        await using var cmd=db.CreateCommand();
-        cmd.CommandText="""
-            CREATE TABLE IF NOT EXISTS anka_users(
-              id TEXT PRIMARY KEY,
-              email TEXT NOT NULL UNIQUE COLLATE NOCASE,
-              display_name TEXT NOT NULL,
-              password_hash TEXT NOT NULL,
-              role TEXT NOT NULL DEFAULT 'Reader',
-              disabled INTEGER NOT NULL DEFAULT 0,
-              created_utc TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS anka_user_shelves(
-              user_id TEXT NOT NULL,
-              book_id TEXT NOT NULL,
-              added_utc TEXT NOT NULL,
-              PRIMARY KEY(user_id,book_id),
-              FOREIGN KEY(user_id) REFERENCES anka_users(id)
-            );
-            CREATE TABLE IF NOT EXISTS anka_works(
-              id TEXT PRIMARY KEY,
-              title TEXT NOT NULL,
-              author TEXT NOT NULL,
-              description TEXT NOT NULL DEFAULT '',
-              category TEXT NOT NULL DEFAULT 'General',
-              created_utc TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS anka_editions(
-              book_id TEXT PRIMARY KEY,
-              work_id TEXT NOT NULL,
-              language TEXT NOT NULL,
-              script TEXT NOT NULL,
-              translator TEXT NOT NULL DEFAULT '',
-              content_status TEXT NOT NULL DEFAULT 'complete',
-              publisher_name TEXT NOT NULL DEFAULT '',
-              price_minor INTEGER NOT NULL DEFAULT 0,
-              currency TEXT NOT NULL DEFAULT 'IRR',
-              FOREIGN KEY(work_id) REFERENCES anka_works(id)
-            );
-            CREATE TABLE IF NOT EXISTS anka_book_access(
-              book_id TEXT PRIMARY KEY,
-              access_mode TEXT NOT NULL DEFAULT 'free'
-                CHECK(access_mode IN ('free','manual')),
-              updated_utc TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS anka_manual_entitlements(
-              user_id TEXT NOT NULL,
-              book_id TEXT NOT NULL,
-              granted_by TEXT NOT NULL,
-              reason TEXT NOT NULL DEFAULT '',
-              granted_utc TEXT NOT NULL,
-              PRIMARY KEY(user_id,book_id)
-            );
-            CREATE TABLE IF NOT EXISTS anka_publisher_requests(
-              user_id TEXT PRIMARY KEY,
-              statement TEXT NOT NULL,
-              state TEXT NOT NULL DEFAULT 'pending',
-              requested_utc TEXT NOT NULL,
-              reviewed_utc TEXT,
-              FOREIGN KEY(user_id) REFERENCES anka_users(id)
-            );
-            CREATE TABLE IF NOT EXISTS anka_book_moderation(
-              book_id TEXT PRIMARY KEY,
-              uploader_id TEXT NOT NULL,
-              rights_statement TEXT NOT NULL,
-              state TEXT NOT NULL DEFAULT 'pending',
-              reviewed_by TEXT,
-              created_utc TEXT NOT NULL,
-              reviewed_utc TEXT
-            );
-            CREATE TABLE IF NOT EXISTS anka_publisher_submissions(
-              id TEXT PRIMARY KEY,
-              user_id TEXT NOT NULL,
-              book_id TEXT NOT NULL,
-              status TEXT NOT NULL DEFAULT 'pending',
-              rights_statement TEXT NOT NULL,
-              submitted_utc TEXT NOT NULL,
-              reviewed_utc TEXT,
-              FOREIGN KEY(user_id) REFERENCES anka_users(id)
-            );
-            """;
-        await cmd.ExecuteNonQueryAsync(ct);
-        // Additive migration: preserve the existing books table and every stored EPUB.
-        cmd.CommandText="""
-          INSERT OR IGNORE INTO anka_works(id,title,author,created_utc)
-            SELECT id,title,author,created_utc FROM books;
-          INSERT OR IGNORE INTO anka_editions(book_id,work_id,language,script,content_status)
-            SELECT id,id,language,original_script,
-              CASE WHEN title LIKE '%آوانویسی ماشینی%' THEN 'unreviewed'
-                ELSE 'complete' END
-            FROM books;
-          """;
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
+    public Task EnsureCreatedAsync(CancellationToken ct=default) => database.EnsureCreatedAsync(ct);
 
     private static string Hash(string password)
     {
@@ -138,22 +37,22 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
             return(false,"Valid email required.");
         if(name.Length<2 || name.Length>100 || password.Length<12 || password.Length>128)
             return(false,"Name must be 2–100 characters and password at least 12 characters.");
-        await using var db=new SqliteConnection(Connection);
+        await using var db=database.CreateConnection();
         await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="INSERT INTO anka_users(id,email,display_name,password_hash,role,created_utc) VALUES(@id,@email,@name,@hash,'Reader',strftime('%Y-%m-%dT%H:%M:%fZ','now'))";
+        cmd.CommandText="INSERT INTO anka_users(id,email,display_name,password_hash,role,created_utc) VALUES(@id,@email,@name,@hash,'Reader',DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ'))";
         cmd.Parameters.AddWithValue("@id",Guid.NewGuid().ToString());
         cmd.Parameters.AddWithValue("@email",email);
         cmd.Parameters.AddWithValue("@name",name);
         cmd.Parameters.AddWithValue("@hash",Hash(password));
         try {await cmd.ExecuteNonQueryAsync();return(true,"");}
-        catch(SqliteException ex) when(ex.SqliteErrorCode==19){return(false,"Account already exists.");}
+        catch(MySqlException ex) when(ex.Number==1062){return(false,"Account already exists.");}
     }
     public async Task<(string Id,string Name,string Role)?> AuthenticateAsync(string email,string password)
     {
         email=email.Trim().ToLowerInvariant();
         if(email.Length>254 || password.Length>128)return null;
-        await using var db=new SqliteConnection(Connection);
+        await using var db=database.CreateConnection();
         await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="SELECT id,display_name,role,password_hash FROM anka_users WHERE email=@email AND disabled=0";
@@ -166,7 +65,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     // Test-only credential lookup. The calling HTTP endpoint must be development AND loopback only.
     public async Task<(string Id,string Name,string Role)?> FindLocalTestAccountAsync(string email)
     {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="SELECT id,display_name,role FROM anka_users WHERE email=@email AND disabled=0";
         cmd.Parameters.AddWithValue("@email",email.Trim().ToLowerInvariant());
@@ -177,7 +76,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     public async Task<IReadOnlyList<AnkaPublisherRequest>> PublisherRequestsAsync()
     {
         var result=new List<AnkaPublisherRequest>();
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
           SELECT r.user_id,u.display_name,u.email,r.statement,r.state
@@ -192,28 +91,29 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     {
         statement=statement.Trim();
         if(statement.Length<12||statement.Length>1500)return false;
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
           -- Only active Readers may request publisher status. An approved publisher
           -- cannot reset their reviewed application to pending.
           INSERT INTO anka_publisher_requests(user_id,statement,state,requested_utc)
-          SELECT id,@text,'pending',strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          SELECT id,@text,'pending',DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ')
           FROM anka_users WHERE id=@id AND role='Reader' AND disabled=0
-          ON CONFLICT(user_id) DO UPDATE SET statement=excluded.statement,state='pending',
-          requested_utc=excluded.requested_utc,reviewed_utc=NULL
-          WHERE EXISTS(SELECT 1 FROM anka_users u
-                       WHERE u.id=excluded.user_id AND u.role='Reader' AND u.disabled=0)
+          ON DUPLICATE KEY UPDATE
+          statement=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND u.role='Reader' AND u.disabled=0),VALUES(statement),statement),
+          state=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND u.role='Reader' AND u.disabled=0),'pending',state),
+          requested_utc=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND u.role='Reader' AND u.disabled=0),VALUES(requested_utc),requested_utc),
+          reviewed_utc=IF(EXISTS(SELECT 1 FROM anka_users u WHERE u.id=@id AND u.role='Reader' AND u.disabled=0),NULL,reviewed_utc)
           """;
         cmd.Parameters.AddWithValue("@id",userId);cmd.Parameters.AddWithValue("@text",statement);
         return await cmd.ExecuteNonQueryAsync()>0;
     }
     public async Task<bool> ReviewPublisherAsync(string userId,bool approve)
     {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var transaction=await db.BeginTransactionAsync();
-        await using var cmd=db.CreateCommand();cmd.Transaction=(SqliteTransaction)transaction;
-        cmd.CommandText="UPDATE anka_publisher_requests SET state=@state,reviewed_utc=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id=@id AND state='pending'";
+        await using var cmd=db.CreateCommand();cmd.Transaction=(MySqlTransaction)transaction;
+        cmd.CommandText="UPDATE anka_publisher_requests SET state=@state,reviewed_utc=DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ') WHERE user_id=@id AND state='pending'";
         cmd.Parameters.AddWithValue("@state",approve?"approved":"rejected");
         cmd.Parameters.AddWithValue("@id",userId);
         if(await cmd.ExecuteNonQueryAsync()!=1)return false;
@@ -231,7 +131,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     }
     public async Task<bool> IsCurrentRoleAsync(string userId,string role)
     {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="SELECT COUNT(*) FROM anka_users WHERE id=@id AND role=@role AND disabled=0";
         cmd.Parameters.AddWithValue("@id",userId);cmd.Parameters.AddWithValue("@role",role);
@@ -240,16 +140,16 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     public async Task<bool> RecordBookSubmissionAsync(string bookId,string uploaderId,string rights)
     {
         if(rights.Trim().Length<12||rights.Length>2000)return false;
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,state,created_utc) VALUES(@id,@user,@rights,'pending',strftime('%Y-%m-%dT%H:%M:%fZ','now'))";
+        cmd.CommandText="INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,state,created_utc) VALUES(@id,@user,@rights,'pending',DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ'))";
         cmd.Parameters.AddWithValue("@id",bookId);cmd.Parameters.AddWithValue("@user",uploaderId);cmd.Parameters.AddWithValue("@rights",rights.Trim());
         return await cmd.ExecuteNonQueryAsync()==1;
     }
     public async Task<IReadOnlyList<AnkaSubmission>> BookSubmissionsAsync()
     {
         var result=new List<AnkaSubmission>();
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
           SELECT m.book_id,b.title,m.rights_statement,m.state
@@ -263,7 +163,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     public async Task<IReadOnlyList<AnkaSubmission>> MyBookSubmissionsAsync(string userId)
     {
         var result=new List<AnkaSubmission>();
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
           SELECT m.book_id,b.title,m.rights_statement,m.state
@@ -278,23 +178,23 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     }
     public async Task<bool> ReviewBookAsync(string bookId,string reviewerId,bool approve)
     {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="UPDATE anka_book_moderation SET state=@state,reviewed_by=@reviewer,reviewed_utc=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE book_id=@id AND state='pending' AND ( @state='rejected' OR (length(trim(rights_statement)) BETWEEN 12 AND 2000 AND EXISTS(SELECT 1 FROM anka_users uploader WHERE uploader.id=uploader_id AND uploader.disabled=0 AND uploader.role IN ('Publisher','Admin')))) AND EXISTS(SELECT 1 FROM anka_users reviewer WHERE reviewer.id=@reviewer AND reviewer.role='Admin' AND reviewer.disabled=0)";
+        cmd.CommandText="UPDATE anka_book_moderation SET state=@state,reviewed_by=@reviewer,reviewed_utc=DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ') WHERE book_id=@id AND state='pending' AND ( @state='rejected' OR (length(trim(rights_statement)) BETWEEN 12 AND 2000 AND EXISTS(SELECT 1 FROM anka_users uploader WHERE uploader.id=uploader_id AND uploader.disabled=0 AND uploader.role IN ('Publisher','Admin')))) AND EXISTS(SELECT 1 FROM anka_users reviewer WHERE reviewer.id=@reviewer AND reviewer.role='Admin' AND reviewer.disabled=0)";
         cmd.Parameters.AddWithValue("@id",bookId);cmd.Parameters.AddWithValue("@reviewer",reviewerId);
         cmd.Parameters.AddWithValue("@state",approve?"approved":"rejected");
         return await cmd.ExecuteNonQueryAsync()==1;
     }
     public async Task<bool> HasActiveAdminAsync()
     {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="SELECT EXISTS(SELECT 1 FROM anka_users WHERE role='Admin' AND disabled=0)";
         return Convert.ToInt32(await cmd.ExecuteScalarAsync())!=0;
     }
     public async Task<bool> BootstrapAdminAsync(string userId)
     {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
         UPDATE anka_users SET role='Admin'
@@ -308,7 +208,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     public async Task<IReadOnlyList<AnkaEditionInfo>> OtherEditionsAsync(string bookId)
     {
         var editions=new List<AnkaEditionInfo>();
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
           SELECT b.id,b.title,e.language,e.content_status,e.translator,e.publisher_name
@@ -317,9 +217,9 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
           JOIN books b ON b.id=e.book_id
           WHERE current.book_id=@id AND
             NOT EXISTS(SELECT 1 FROM anka_book_moderation source_m
-              WHERE source_m.book_id=current.book_id AND source_m.state IS NOT 'approved') AND
+              WHERE source_m.book_id=current.book_id AND NOT (source_m.state <=> 'approved')) AND
             NOT EXISTS(SELECT 1 FROM anka_book_moderation m
-              WHERE m.book_id=b.id AND m.state IS NOT 'approved')
+              WHERE m.book_id=b.id AND NOT (m.state <=> 'approved'))
           ORDER BY CASE e.language WHEN 'az-Arab' THEN 0 WHEN 'tr' THEN 1 WHEN 'az-Latn' THEN 2 ELSE 3 END
           """;
         cmd.Parameters.AddWithValue("@id",bookId);
@@ -329,7 +229,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     }
     public async Task<bool> LinkEditionAsync(string bookId,string targetWorkId)
     {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
           UPDATE anka_editions SET work_id=@work
@@ -341,17 +241,14 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
 
     public async Task<bool> SetBookAccessAsync(string bookId,bool manual)
     {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
           INSERT INTO anka_book_access(book_id,access_mode,updated_utc)
-          SELECT id,@mode,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM books
+          SELECT id,@mode,DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ') FROM books
           WHERE id=@id AND NOT EXISTS(
-            SELECT 1 FROM anka_book_moderation m WHERE m.book_id=books.id AND m.state IS NOT 'approved')
-          ON CONFLICT(book_id) DO UPDATE SET access_mode=excluded.access_mode,updated_utc=excluded.updated_utc
-          WHERE EXISTS(SELECT 1 FROM books b WHERE b.id=excluded.book_id
-            AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
-              WHERE m.book_id=b.id AND m.state IS NOT 'approved'))
+            SELECT 1 FROM anka_book_moderation m WHERE m.book_id=books.id AND NOT (m.state <=> 'approved'))
+          ON DUPLICATE KEY UPDATE access_mode=VALUES(access_mode),updated_utc=VALUES(updated_utc)
           """;
         cmd.Parameters.AddWithValue("@id",bookId);
         cmd.Parameters.AddWithValue("@mode",manual?"manual":"free");
@@ -363,17 +260,17 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         email=email.Trim().ToLowerInvariant();
         reason=reason.Trim();
         if(email.Length>254||reason.Length>350)return false;
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
-          INSERT OR IGNORE INTO anka_manual_entitlements(user_id,book_id,granted_by,reason,granted_utc)
-          SELECT u.id,b.id,@admin,@reason,strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          INSERT IGNORE INTO anka_manual_entitlements(user_id,book_id,granted_by,reason,granted_utc)
+          SELECT u.id,b.id,@admin,@reason,DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ')
           FROM anka_users u CROSS JOIN books b
           WHERE u.email=@email AND u.disabled=0 AND b.id=@book
             AND EXISTS(SELECT 1 FROM anka_users reviewer
                        WHERE reviewer.id=@admin AND reviewer.role='Admin' AND reviewer.disabled=0)
             AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
-                           WHERE m.book_id=b.id AND m.state IS NOT 'approved')
+                           WHERE m.book_id=b.id AND NOT (m.state <=> 'approved'))
           """;
         cmd.Parameters.AddWithValue("@email",email);
         cmd.Parameters.AddWithValue("@book",bookId);
@@ -384,14 +281,14 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
 
     public async Task<bool> CanReadAsync(string? userId,string bookId)
     {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
           SELECT EXISTS(
              SELECT 1 FROM books b
              WHERE b.id=@book
                AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
-                 WHERE m.book_id=b.id AND m.state IS NOT 'approved')
+                 WHERE m.book_id=b.id AND NOT (m.state <=> 'approved'))
                -- A moderated title must have an explicit policy even when an
                -- entitlement or admin role exists. Legacy unmoderated EPUBs remain readable.
                AND (NOT EXISTS(SELECT 1 FROM anka_book_moderation m
@@ -429,7 +326,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     public async Task<IReadOnlyList<string>> ShelfAsync(string userId)
     {
         var result=new List<string>();
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="SELECT book_id FROM anka_user_shelves WHERE user_id=@user ORDER BY added_utc DESC";
         cmd.Parameters.AddWithValue("@user",userId);
@@ -439,9 +336,9 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     }
     public async Task AddToShelfAsync(string userId,string bookId)
     {
-        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var db=database.CreateConnection();await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="INSERT OR IGNORE INTO anka_user_shelves(user_id,book_id,added_utc) VALUES(@u,@b,strftime('%Y-%m-%dT%H:%M:%fZ','now'))";
+        cmd.CommandText="INSERT IGNORE INTO anka_user_shelves(user_id,book_id,added_utc) VALUES(@u,@b,DATE_FORMAT(UTC_TIMESTAMP(3), '%Y-%m-%dT%H:%i:%s.%fZ'))";
         cmd.Parameters.AddWithValue("@u",userId);cmd.Parameters.AddWithValue("@b",bookId);
         await cmd.ExecuteNonQueryAsync();
     }
