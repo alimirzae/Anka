@@ -1,6 +1,6 @@
 # ANKA — SQLite → MySQL cutover (production-safe)
 
-**Status: development branch only. Never merge or publish until all gates pass.**
+**Status: development branch only. MySQL 8.4 disposable integration CI passed on 2026-11-18 (run 44273641947). Never merge/publish until real-data and Windows production cutover gates pass.**
 
 ## Scope
 All structured application records are stored in MySQL: accounts, password hashes, role assignments, books and edition metadata, publishers/moderation, user shelves, manual access rights and entitlements. The EPUB binary files and ASP.NET Core DataProtection key ring stay in the existing persistent IIS `App_Data` folder. Do **not** copy database rows alone and discard keys or EPUBs.
@@ -36,15 +36,17 @@ python "$repo\scripts\migrate-sqlite-to-mysql.py" --sqlite-snapshot "D:\AnkaBack
 Remove-Item Env:\ANKA_MYSQL_PASSWORD
 ```
 
+Integration success: https://github.com/alimirzae/Anka/actions/runs/44273641947 — includes cases rejecting `APPROVED`, `approved `, pending and rejected moderation states under MySQL case-insensitive default collation.
+
 ## Mandatory acceptance gates
 - [ ] MySQL connection from Windows IIS identity verified.
-- [ ] Latest branch restored/build successful on .NET 10 (no unresolved compiler errors).
-- [ ] SQLite backup regression tests pass on Windows and independent restore validation passes.
+- [x] Linux .NET 10 Release build succeeded on MySQL integration runner; Windows runner build still to verify.
+- [x] Isolated SQLite backup/verification and EPUB regression tests passed on Linux MySQL integration CI; Windows regression still to verify.
 - [ ] Migration dry-run counts match production snapshot and apply succeeds on isolated MySQL.
 - [ ] All 10 migrated tables have verified row fingerprints.
 - [ ] EPUB filesystem and DataProtection keys retained, inventories checked.
 - [ ] Role revocation, publisher ownership and purchase/manual-entitlement boundaries tested.
-- [ ] A staging web deployment passes health and interactive smoke tests.
+- [x] Isolated MySQL 8.4 CI app startup/health/API moderation and anonymous-access smoke passed; Windows staging deployment still to verify.
 - [ ] Production publish, cutover, monitored rollback and post-cutover backups prepared.
 
 **Important:** This migration does not implement missing OTP, phone fields, reviews or reading-progress tables. Those features require separate schema and application work; the existing ANKA records are preserved in MySQL.
