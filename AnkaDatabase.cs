@@ -19,7 +19,8 @@ public sealed class AnkaDatabase(IConfiguration configuration, IWebHostEnvironme
         await using var db = CreateConnection();
         await db.OpenAsync(ct);
         var schemaFile = Path.Combine(environment.ContentRootPath, "sql", "mysql-schema.sql");
-        var schema = await File.ReadAllTextAsync(schemaFile, ct);
+        var schema = string.Join("\n", (await File.ReadAllLinesAsync(schemaFile, ct))
+            .Where(line => !line.TrimStart().StartsWith("--", StringComparison.Ordinal)));
         foreach (var statement in schema.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         {
             if (!statement.Contains("CREATE TABLE", StringComparison.OrdinalIgnoreCase)) continue;
