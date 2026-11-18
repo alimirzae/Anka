@@ -67,5 +67,17 @@ class ReadAuthorizationSqliteTests(unittest.TestCase):
                 self.assertFalse(self.can_read("admin"))
 
 
+    def test_mixed_valid_and_invalid_access_rows_fail_closed(self):
+        self.db.execute("INSERT INTO anka_book_moderation VALUES('book','approved')")
+        self.db.execute("INSERT INTO anka_manual_entitlements VALUES('book','reader')")
+        for invalid in (None, "", "premium"):
+            with self.subTest(invalid=invalid):
+                self.db.execute("DELETE FROM anka_book_access")
+                self.db.execute("INSERT INTO anka_book_access VALUES('book','free')")
+                self.db.execute("INSERT INTO anka_book_access VALUES('book',?)", (invalid,))
+                for user in ("", "reader", "admin"):
+                    self.assertFalse(self.can_read(user))
+
+
 if __name__ == "__main__":
     unittest.main()
