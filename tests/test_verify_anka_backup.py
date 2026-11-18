@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import tempfile
@@ -18,7 +19,7 @@ class VerifyBackupTests(unittest.TestCase):
         self.root = Path(self.tmp.name) / "backup"
         self.root.mkdir()
         self.db = self.root / "anka.db"
-        with sqlite3.connect(self.db) as conn:
+        with closing(sqlite3.connect(self.db)) as conn, conn:
             conn.execute("CREATE TABLE editions (title TEXT)")
             conn.execute("INSERT INTO editions VALUES ('fixture')")
         self.epub = self.root / "epubs" / "sample.epub"
@@ -56,7 +57,7 @@ class VerifyBackupTests(unittest.TestCase):
         self.assertNotEqual(self.verify().returncode, 0)
 
     def test_modified_database_fails(self):
-        with sqlite3.connect(self.db) as conn:
+        with closing(sqlite3.connect(self.db)) as conn, conn:
             conn.execute("INSERT INTO editions VALUES ('tampered')")
         self.assertNotEqual(self.verify().returncode, 0)
 
