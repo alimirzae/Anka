@@ -153,7 +153,7 @@ class BookReviewAuthorizationTests(unittest.TestCase):
             "SELECT state,reviewed_by,reviewed_utc FROM anka_book_moderation WHERE book_id='pending'"
         ).fetchone()
         self.assertEqual(("approved", "admin"), (state, reviewer))
-        self.assertRegex(timestamp, r"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$")
+        self.assertRegex(timestamp, r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$")
 
     def test_already_reviewed_and_missing_books_denied(self):
         for book in ("approved", "rejected", "missing"):
