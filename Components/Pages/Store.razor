@@ -1,7 +1,7 @@
 @page "/store"
 @implements IDisposable
 @inject UiText L
-@inject IWebHostEnvironment HostEnvironment
+@inject AnkaDatabase Database
 @inject NavigationManager Navigation
 
 <div class="anka-market">
@@ -71,9 +71,7 @@
  private void Refresh()=>_=InvokeAsync(StateHasChanged);
  protected override async Task OnInitializedAsync(){
   try{
-   var file=Path.Combine(HostEnvironment.ContentRootPath,"App_Data","anka.db");
-   await using var db=new Microsoft.Data.Sqlite.SqliteConnection(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{
-    DataSource=file,Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite}.ToString());
+   await using var db=Database.CreateConnection();
    await db.OpenAsync();
    await using var cmd=db.CreateCommand();
    cmd.CommandText="""
