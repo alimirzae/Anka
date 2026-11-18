@@ -280,7 +280,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     {
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="UPDATE anka_book_moderation SET state=@state,reviewed_by=@reviewer,reviewed_utc=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE book_id=@id AND state='pending' AND ( @state='rejected' OR (length(trim(rights_statement)) BETWEEN 12 AND 2000 AND EXISTS(SELECT 1 FROM anka_users uploader WHERE uploader.id=uploader_id AND uploader.disabled=0 AND uploader.role IN ('Publisher','Admin')))) AND EXISTS(SELECT 1 FROM anka_users reviewer WHERE reviewer.id=@reviewer AND reviewer.role='Admin' AND reviewer.disabled=0)";
+        cmd.CommandText="UPDATE anka_book_moderation SET state=@state,reviewed_by=@reviewer,reviewed_utc=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE book_id=@id AND state='pending' AND EXISTS(SELECT 1 FROM books WHERE books.id=anka_book_moderation.book_id) AND ( @state='rejected' OR (length(trim(rights_statement)) BETWEEN 12 AND 2000 AND EXISTS(SELECT 1 FROM anka_users uploader WHERE uploader.id=uploader_id AND uploader.disabled=0 AND uploader.role IN ('Publisher','Admin')))) AND EXISTS(SELECT 1 FROM anka_users reviewer WHERE reviewer.id=@reviewer AND reviewer.role='Admin' AND reviewer.disabled=0)";
         cmd.Parameters.AddWithValue("@id",bookId);cmd.Parameters.AddWithValue("@reviewer",reviewerId);
         cmd.Parameters.AddWithValue("@state",approve?"approved":"rejected");
         return await cmd.ExecuteNonQueryAsync()==1;
