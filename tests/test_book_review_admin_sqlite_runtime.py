@@ -116,6 +116,21 @@ class BookReviewAuthorizationTests(unittest.TestCase):
                 self.assertEqual(0, self.review("orphan", "admin", state))
                 self.assertEqual(("pending", None), self.state("orphan"))
 
+    def test_moderation_identifiers_are_parameterized(self):
+        """Untrusted book and reviewer identifiers must not alter moderation SQL."""
+        for book, reviewer in (
+            ("pending' OR 1=1 --", "admin"),
+            ("pending", "admin' OR 1=1 --"),
+            ("pending", "reader' OR role='Admin"),
+            ("pending; UPDATE anka_users SET role='Admin' WHERE id='reader'; --", "admin"),
+        ):
+            with self.subTest(book=book, reviewer=reviewer):
+                self.assertEqual(0, self.review(book, reviewer))
+                self.assertEqual(("pending", None), self.state("pending"))
+                self.assertEqual(("Reader",), self.db.execute(
+                    "SELECT role FROM anka_users WHERE id='reader'"
+                ).fetchone())
+
     def test_already_reviewed_and_missing_books_denied(self):
         for book in ("approved", "rejected", "missing"):
             with self.subTest(book=book):
