@@ -131,6 +131,30 @@ class BookReviewAuthorizationTests(unittest.TestCase):
                     "SELECT role FROM anka_users WHERE id='reader'"
                 ).fetchone())
 
+    def test_denied_review_does_not_stamp_reviewer_or_timestamp(self):
+        """Failed approval must not leave an audit trail claiming admin review."""
+        for reviewer, book in (("reader", "pending"), ("admin", "no_rights"),
+                               ("admin", "missing"), ("disabled_admin", "pending")):
+            with self.subTest(reviewer=reviewer, book=book):
+                before = self.db.execute(
+                    "SELECT state,reviewed_by,reviewed_utc FROM anka_book_moderation WHERE book_id=?",
+                    (book,),
+                ).fetchone()
+                self.assertEqual(0, self.review(book, reviewer))
+                after = self.db.execute(
+                    "SELECT state,reviewed_by,reviewed_utc FROM anka_book_moderation WHERE book_id=?",
+                    (book,),
+                ).fetchone()
+                self.assertEqual(before, after)
+
+    def test_successful_review_records_reviewer_and_utc_timestamp(self):
+        self.assertEqual(1, self.review("pending", "admin"))
+        state, reviewer, timestamp = self.db.execute(
+            "SELECT state,reviewed_by,reviewed_utc FROM anka_book_moderation WHERE book_id='pending'"
+        ).fetchone()
+        self.assertEqual(("approved", "admin"), (state, reviewer))
+        self.assertRegex(timestamp, r"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$")
+
     def test_already_reviewed_and_missing_books_denied(self):
         for book in ("approved", "rejected", "missing"):
             with self.subTest(book=book):
