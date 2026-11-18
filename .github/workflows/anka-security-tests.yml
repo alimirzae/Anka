@@ -24,6 +24,19 @@ jobs:
         run: |
           set -o pipefail
           python -m unittest discover -s tests -p 'test_*.py' -v 2>&1 | tee "$RUNNER_TEMP/anka-security-tests.log"
+      - name: Summarize failed security tests
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo '### SQLite security regression failures'
+            echo ''
+            echo 'Full output is retained in the security diagnostics artifact.'
+            echo ''
+            echo '```text'
+            grep -E '^(FAIL|ERROR): |^FAILED \(' "$RUNNER_TEMP/anka-security-tests.log" || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload security test diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v4
