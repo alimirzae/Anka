@@ -106,6 +106,21 @@ class BookReviewAuthorizationTests(unittest.TestCase):
                 self.assertEqual(int(allowed), self.review("pending", "admin"))
                 self.assertEqual("approved" if allowed else "pending", self.state("pending")[0])
 
+    def test_rejection_does_not_require_active_uploader(self):
+        """An administrator can reject invalid submissions without granting access."""
+        for book in ("no_rights", "no_uploader"):
+            with self.subTest(book=book):
+                self.assertEqual(1, self.review(book, "admin", "rejected"))
+                self.assertEqual(("rejected", "admin"), self.state(book))
+                self.assertEqual(0, self.review(book, "admin"))
+
+    def test_revoked_reviewer_cannot_reject_either(self):
+        """Revocation applies to rejection as well as approval."""
+        for reviewer in ("reader", "disabled_admin", "missing"):
+            with self.subTest(reviewer=reviewer):
+                self.assertEqual(0, self.review("pending", reviewer, "rejected"))
+                self.assertEqual(("pending", None), self.state("pending"))
+
     def test_orphaned_moderation_record_cannot_be_reviewed(self):
         self.db.execute(
             "INSERT INTO anka_book_moderation(book_id,state,rights_statement,uploader_id) VALUES (?,?,?,?)",
