@@ -144,6 +144,31 @@ class RightsApprovalSqliteTests(unittest.TestCase):
                     self.db.execute("SELECT COUNT(*) FROM anka_users").fetchone()[0], 4
                 )
 
+    def test_malicious_book_ids_cannot_review_other_books(self):
+        # A forged book ID must never match the real book or alter its audit trail.
+        payloads = ("book' OR 1=1 --", "book'; DROP TABLE books; --",
+                    "book\\x00", "BOOK", "")
+        for payload in payloads:
+            with self.subTest(payload=payload):
+                self.db.execute("DELETE FROM anka_book_moderation")
+                self.db.execute(
+                    "INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,state,reviewed_by,reviewed_utc) "
+                    "VALUES('book','publisher','I own publication rights','pending',NULL,NULL)"
+                )
+                result = self.db.execute(SQL, {
+                    "id": payload, "reviewer": "admin", "state": "approved"
+                })
+                self.assertEqual(result.rowcount, 0)
+                self.assertEqual(
+                    self.db.execute(
+                        "SELECT state,reviewed_by,reviewed_utc FROM anka_book_moderation WHERE book_id='book'"
+                    ).fetchone(),
+                    ("pending", None, None),
+                )
+                self.assertEqual(
+                    self.db.execute("SELECT COUNT(*) FROM books").fetchone()[0], 1
+                )
+
     def test_admin_can_reject_invalid_submission(self):
         self.assertEqual(self.review("reader","short",state="rejected"), (1,"rejected"))
 
