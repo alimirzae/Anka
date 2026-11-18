@@ -96,6 +96,27 @@ class RightsApprovalSqliteTests(unittest.TestCase):
                 ).fetchone()
                 self.assertEqual(audit, ("pending", None, None))
 
+    def test_moderation_sql_rejects_unrecognized_decisions_without_audit_changes(self):
+        # Defense in depth: even a future caller bypassing the bool API cannot
+        # turn an arbitrary state into a published/approved submission.
+        for decision in ("published", "pending", "withdrawn", "", "APPROVED", None):
+            with self.subTest(decision=decision):
+                self.db.execute("DELETE FROM anka_book_moderation")
+                self.db.execute(
+                    "INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,state,reviewed_by,reviewed_utc) "
+                    "VALUES('book','publisher','I own publication rights','pending',NULL,NULL)"
+                )
+                result = self.db.execute(SQL, {
+                    "id": "book", "reviewer": "admin", "state": decision
+                })
+                self.assertEqual(result.rowcount, 0)
+                self.assertEqual(
+                    self.db.execute(
+                        "SELECT state,reviewed_by,reviewed_utc FROM anka_book_moderation WHERE book_id='book'"
+                    ).fetchone(),
+                    ("pending", None, None),
+                )
+
     def test_admin_can_reject_invalid_submission(self):
         self.assertEqual(self.review("reader","short",state="rejected"), (1,"rejected"))
 
