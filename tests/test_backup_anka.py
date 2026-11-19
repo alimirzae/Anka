@@ -5,6 +5,7 @@ Run: python -m unittest discover -s tests -p 'test_backup_anka.py'
 Only temporary fixtures are used; production SQLite/EPUB files are never touched.
 """
 import hashlib
+from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
@@ -35,7 +36,7 @@ class BackupTests(unittest.TestCase):
 
     def create_db(self):
         db = self.data / "anka.db"
-        with sqlite3.connect(db) as conn:
+        with closing(sqlite3.connect(db)) as conn:
             conn.execute("CREATE TABLE books (title TEXT NOT NULL)")
             conn.execute("INSERT INTO books VALUES (?)", ("Original EPUB",))
         return db
@@ -51,7 +52,7 @@ class BackupTests(unittest.TestCase):
         backups = list(self.output.glob("anka-*"))
         self.assertEqual(len(backups), 1)
         backup = backups[0]
-        with sqlite3.connect(backup / "anka.db") as conn:
+        with closing(sqlite3.connect(backup / "anka.db")) as conn:
             self.assertEqual(conn.execute("PRAGMA integrity_check").fetchone()[0], "ok")
             self.assertEqual(conn.execute("SELECT title FROM books").fetchone()[0], "Original EPUB")
         manifest = json.loads((backup / "manifest.json").read_text(encoding="utf-8"))
@@ -101,7 +102,7 @@ class BackupTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             backups = list(self.output.glob("anka-*"))
             self.assertEqual(len(backups), 1)
-            with sqlite3.connect(backups[0] / "anka.db") as restored:
+            with closing(sqlite3.connect(backups[0] / "anka.db")) as restored:
                 titles = {row[0] for row in restored.execute("SELECT title FROM books")}
                 self.assertEqual(titles, {"Original EPUB", "WAL-only edition"})
                 self.assertEqual(restored.execute("PRAGMA integrity_check").fetchone()[0], "ok")
