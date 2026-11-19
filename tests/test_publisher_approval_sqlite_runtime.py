@@ -92,6 +92,15 @@ class PublisherApprovalSqliteTests(unittest.TestCase):
             self.decide("reader")
         self.assertEqual(self.snapshot("reader"), before)
 
+    def test_deleted_applicant_cannot_be_approved_or_rejected(self):
+        # An orphaned pending request must not be reviewed after its account is removed.
+        self.db.execute("DELETE FROM anka_users WHERE id='reader'")
+        before = self.snapshot("reader")
+        for approve in (True, False):
+            with self.subTest(approve=approve):
+                self.assertFalse(self.decide("reader", approve))
+                self.assertEqual(self.snapshot("reader"), before)
+
     def test_forged_identifiers_do_not_change_requests(self):
         before = self.snapshot("reader")
         for forged in ("reader' OR 1=1 --", "'; DROP TABLE anka_users; --", "READER", ""):
