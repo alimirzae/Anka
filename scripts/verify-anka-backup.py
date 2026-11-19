@@ -83,7 +83,11 @@ def verify(root):
     # or consulting an external WAL while inspecting this self-contained snapshot.
     # sqlite3.Connection.__exit__ commits/rolls back but does not close the handle.
     # Explicit closure is essential for restoring/removing fixtures on Windows.
-    # Path.as_uri() percent-encodes spaces, # and ? in Windows/POSIX paths.\n    # Concatenating a raw filesystem path into a SQLite URI can inspect the\n    # wrong file (or fail) when a backup directory contains URI delimiters.\n    db_uri = db.resolve().as_uri() + "?mode=ro&immutable=1"\n    with closing(sqlite3.connect(db_uri, uri=True)) as conn:
+    # Path.as_uri() percent-encodes spaces, # and ? in Windows/POSIX paths.
+    # Concatenating a raw filesystem path into a SQLite URI can inspect the
+    # wrong file (or fail) when a backup directory contains URI delimiters.
+    db_uri = db.resolve().as_uri() + "?mode=ro&immutable=1"
+    with closing(sqlite3.connect(db_uri, uri=True)) as conn:
         results = [row[0] for row in conn.execute("PRAGMA integrity_check")]
         if results != ["ok"]:
             raise ValueError("SQLite integrity check failed: " + str(results[:3]))
