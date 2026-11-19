@@ -5,6 +5,7 @@ Usage: python scripts/verify-anka-backup.py --backup-dir D:\\AnkaBackups\\anka-Y
 This script NEVER writes into App_Data or a live IIS deployment.
 """
 import argparse
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
@@ -80,7 +81,9 @@ def verify(root):
         raise ValueError("SQLite SHA-256 mismatch")
     # Immutable read-only mode prevents SQLite from creating journal/SHM files
     # or consulting an external WAL while inspecting this self-contained snapshot.
-    with sqlite3.connect("file:" + db.resolve().as_posix() + "?mode=ro&immutable=1", uri=True) as conn:
+    # sqlite3.Connection.__exit__ commits/rolls back but does not close the handle.
+    # Explicit closure is essential for restoring/removing fixtures on Windows.
+    with closing(sqlite3.connect("file:" + db.resolve().as_posix() + "?mode=ro&immutable=1", uri=True)) as conn:
         results = [row[0] for row in conn.execute("PRAGMA integrity_check")]
         if results != ["ok"]:
             raise ValueError("SQLite integrity check failed: " + str(results[:3]))
