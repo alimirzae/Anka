@@ -76,6 +76,22 @@ class PublisherApprovalSqliteTests(unittest.TestCase):
         self.assertFalse(self.decide("reader", approve=False))
         self.assertEqual(self.snapshot("reader"), before)
 
+    def test_role_update_failure_rolls_back_approval_and_audit(self):
+        # Simulate a database failure after the request UPDATE but before role promotion.
+        # The transaction must leave both the request and the user's role untouched.
+        before = self.snapshot("reader")
+        self.db.executescript("""
+            CREATE TRIGGER prevent_publisher_promotion
+            BEFORE UPDATE OF role ON anka_users
+            WHEN NEW.id='reader' AND NEW.role='Publisher'
+            BEGIN
+                SELECT RAISE(ABORT, 'simulated role write failure');
+            END;
+        """)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.decide("reader")
+        self.assertEqual(self.snapshot("reader"), before)
+
     def test_forged_identifiers_do_not_change_requests(self):
         before = self.snapshot("reader")
         for forged in ("reader' OR 1=1 --", "'; DROP TABLE anka_users; --", "READER", ""):
