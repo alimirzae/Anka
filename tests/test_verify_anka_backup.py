@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Read-only verifier regression tests using disposable SQLite and EPUB fixtures."""
 import hashlib
+from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
@@ -18,9 +19,10 @@ class VerifyBackupTests(unittest.TestCase):
         self.root = Path(self.tmp.name) / "backup"
         self.root.mkdir()
         self.db = self.root / "anka.db"
-        with sqlite3.connect(self.db) as conn:
-            conn.execute("CREATE TABLE editions (title TEXT)")
-            conn.execute("INSERT INTO editions VALUES ('fixture')")
+        with closing(sqlite3.connect(self.db)) as conn:
+            with conn:
+                conn.execute("CREATE TABLE editions (title TEXT)")
+                conn.execute("INSERT INTO editions VALUES ('fixture')")
         self.epub = self.root / "epubs" / "sample.epub"
         self.epub.parent.mkdir()
         self.epub.write_bytes(b"epub-fixture")
@@ -56,8 +58,9 @@ class VerifyBackupTests(unittest.TestCase):
         self.assertNotEqual(self.verify().returncode, 0)
 
     def test_modified_database_fails(self):
-        with sqlite3.connect(self.db) as conn:
-            conn.execute("INSERT INTO editions VALUES ('tampered')")
+        with closing(sqlite3.connect(self.db)) as conn:
+            with conn:
+                conn.execute("INSERT INTO editions VALUES ('tampered')")
         self.assertNotEqual(self.verify().returncode, 0)
 
     def test_corrupt_sqlite_with_matching_hash_fails_integrity_check(self):
