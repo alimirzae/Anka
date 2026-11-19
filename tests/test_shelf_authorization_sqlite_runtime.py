@@ -11,9 +11,10 @@ SOURCE = (Path(__file__).resolve().parents[1] / "AnkaAccountService.cs").read_te
 
 
 def statement(method, next_method):
-    section = SOURCE.split("public async Task " + method, 1)[1].split(
-        "public async Task " + next_method, 1
-    )[0]
+    # Generic Task<T> signatures must not be mistaken for plain Task.
+    start = SOURCE.index(method)
+    end = SOURCE.find(next_method, start + len(method))
+    section = SOURCE[start:end if end != -1 else None]
     match = re.search(r'cmd\.CommandText="""(.*?)""";', section, re.S)
     if not match:
         raise AssertionError("Cannot locate production SQL for " + method)
@@ -21,8 +22,7 @@ def statement(method, next_method):
 
 
 SHELF_SQL = statement("ShelfAsync(", "AddToShelfAsync(")
-ADD_SQL = statement("AddToShelfAsync(", "NOT_A_REAL_METHOD(")
-
+ADD_SQL = statement("AddToShelfAsync(", "OtherEditionsAsync(")
 
 class ShelfAuthorizationSqliteRuntime(unittest.TestCase):
     def setUp(self):
