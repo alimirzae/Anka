@@ -173,7 +173,8 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
             return null;
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="SELECT id,display_name,role FROM anka_users WHERE email=@email AND disabled=0";
+        // A fixed development PIN must never impersonate privileged Admin/Publisher accounts.
+        cmd.CommandText="SELECT id,display_name,role FROM anka_users WHERE email=@email AND disabled=0 AND role='Reader'";
         cmd.Parameters.AddWithValue("@email",email.Trim().ToLowerInvariant());
         await using var r=await cmd.ExecuteReaderAsync();
         if(!await r.ReadAsync())return null;
