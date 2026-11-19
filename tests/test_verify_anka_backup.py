@@ -66,7 +66,7 @@ class VerifyBackupTests(unittest.TestCase):
     def test_corrupt_sqlite_with_matching_hash_fails_integrity_check(self):
         # A valid digest proves identity, not that the SQLite file is usable.
         original_epub = self.hash(self.epub)
-        self.db.write_bytes(b"not a sqlite database" + b"\\x00" * 128)
+        self.db.write_bytes(b"not a sqlite database" + bytes(128))
         self.manifest["database"]["sha256"] = self.hash(self.db)
         self.save_manifest()
         before_db = self.hash(self.db)
