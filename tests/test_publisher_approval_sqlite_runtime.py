@@ -101,6 +101,29 @@ class PublisherApprovalSqliteTests(unittest.TestCase):
                 self.assertFalse(self.decide("reader", approve))
                 self.assertEqual(self.snapshot("reader"), before)
 
+    def test_review_is_scoped_to_requested_applicant_only(self):
+        # Approving one applicant must not alter unrelated pending requests.
+        self.db.execute("INSERT INTO anka_users VALUES ('second','Reader',0)")
+        self.db.execute("INSERT INTO anka_publisher_requests(user_id,state) VALUES ('second','pending')")
+        unrelated_before = {
+            user_id: self.snapshot(user_id)
+            for user_id in ("second", "disabled", "publisher", "admin")
+        }
+        self.assertTrue(self.decide("reader"))
+        self.assertEqual(self.snapshot("reader")[0][0], "approved")
+        for user_id, before in unrelated_before.items():
+            with self.subTest(user_id=user_id):
+                self.assertEqual(self.snapshot(user_id), before)
+
+    def test_rejection_does_not_change_other_pending_requests(self):
+        self.db.execute("INSERT INTO anka_users VALUES ('second','Reader',0)")
+        self.db.execute("INSERT INTO anka_publisher_requests(user_id,state) VALUES ('second','pending')")
+        other_before = self.snapshot("second")
+        self.assertTrue(self.decide("reader", approve=False))
+        self.assertEqual(self.snapshot("reader")[0][0], "rejected")
+        self.assertEqual(self.snapshot("reader")[1], ("Reader", 0))
+        self.assertEqual(self.snapshot("second"), other_before)
+
     def test_forged_identifiers_do_not_change_requests(self):
         before = self.snapshot("reader")
         for forged in ("reader' OR 1=1 --", "'; DROP TABLE anka_users; --", "READER", ""):
