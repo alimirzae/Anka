@@ -166,6 +166,11 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     // Test-only credential lookup. The calling HTTP endpoint must be development AND loopback only.
     public async Task<(string Id,string Name,string Role)?> FindLocalTestAccountAsync(string email)
     {
+        // Defense in depth: never expose passwordless account lookup to Production,
+        // even if a future endpoint accidentally calls this method.
+        if(!env.IsDevelopment() ||
+           !string.Equals(Environment.GetEnvironmentVariable("ANKA_ENABLE_LOCAL_TEST_LOGIN"),"true",StringComparison.OrdinalIgnoreCase))
+            return null;
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="SELECT id,display_name,role FROM anka_users WHERE email=@email AND disabled=0";
