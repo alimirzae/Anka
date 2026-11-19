@@ -447,7 +447,29 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
     {
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="INSERT OR IGNORE INTO anka_user_shelves(user_id,book_id,added_utc) VALUES(@u,@b,strftime('%Y-%m-%dT%H:%M:%fZ','now'))";
+        // Never add unapproved or inaccessible titles to a personal shelf.
+        // Check the active user and the same publication/access gates as CanReadAsync.
+        cmd.CommandText="""
+          INSERT OR IGNORE INTO anka_user_shelves(user_id,book_id,added_utc)
+          SELECT u.id,b.id,strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          FROM anka_users u CROSS JOIN books b
+          WHERE u.id=@u AND u.disabled=0 AND b.id=@b
+            AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
+                           WHERE m.book_id=b.id AND m.state IS NOT 'approved')
+            AND (NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id)
+                 OR EXISTS(SELECT 1 FROM anka_book_access a
+                           WHERE a.book_id=b.id AND a.access_mode IN ('free','manual')))
+            AND NOT EXISTS(SELECT 1 FROM anka_book_access a
+                           WHERE a.book_id=b.id AND (a.access_mode IS NULL OR a.access_mode NOT IN ('free','manual')))
+            AND (
+              (NOT EXISTS(SELECT 1 FROM anka_book_access a WHERE a.book_id=b.id)
+               AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id))
+              OR EXISTS(SELECT 1 FROM anka_book_access a WHERE a.book_id=b.id AND a.access_mode='free')
+              OR EXISTS(SELECT 1 FROM anka_manual_entitlements e
+                        WHERE e.book_id=b.id AND e.user_id=u.id)
+              OR u.role='Admin'
+            )
+          """;
         cmd.Parameters.AddWithValue("@u",userId);cmd.Parameters.AddWithValue("@b",bookId);
         await cmd.ExecuteNonQueryAsync();
     }
