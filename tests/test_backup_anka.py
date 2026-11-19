@@ -37,8 +37,9 @@ class BackupTests(unittest.TestCase):
     def create_db(self):
         db = self.data / "anka.db"
         with closing(sqlite3.connect(db)) as conn:
-            conn.execute("CREATE TABLE books (title TEXT NOT NULL)")
-            conn.execute("INSERT INTO books VALUES (?)", ("Original EPUB",))
+            with conn:
+                conn.execute("CREATE TABLE books (title TEXT NOT NULL)")
+                conn.execute("INSERT INTO books VALUES (?)", ("Original EPUB",))
         return db
 
     def test_backup_integrity_and_epub_inventory(self):
