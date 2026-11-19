@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 45
     defaults:
       run:
-        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        shell: powershell
     env:
       IIS_SITE: anka.iyashil.com
       IIS_PATH: C:\inetpub\anka.iyashil.com
