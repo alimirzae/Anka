@@ -437,7 +437,29 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         var result=new List<string>();
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
         await using var cmd=db.CreateCommand();
-        cmd.CommandText="SELECT book_id FROM anka_user_shelves WHERE user_id=@user ORDER BY added_utc DESC";
+        cmd.CommandText="""
+          SELECT s.book_id
+          FROM anka_user_shelves s
+          JOIN anka_users u ON u.id=s.user_id AND u.disabled=0
+          JOIN books b ON b.id=s.book_id
+          WHERE s.user_id=@user
+            AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
+                           WHERE m.book_id=b.id AND m.state IS NOT 'approved')
+            AND (NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id)
+                 OR EXISTS(SELECT 1 FROM anka_book_access a
+                           WHERE a.book_id=b.id AND a.access_mode IN ('free','manual')))
+            AND NOT EXISTS(SELECT 1 FROM anka_book_access a
+                           WHERE a.book_id=b.id AND (a.access_mode IS NULL OR a.access_mode NOT IN ('free','manual')))
+            AND (
+              (NOT EXISTS(SELECT 1 FROM anka_book_access a WHERE a.book_id=b.id)
+               AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id))
+              OR EXISTS(SELECT 1 FROM anka_book_access a WHERE a.book_id=b.id AND a.access_mode='free')
+              OR EXISTS(SELECT 1 FROM anka_manual_entitlements e
+                        WHERE e.book_id=b.id AND e.user_id=u.id)
+              OR u.role='Admin'
+            )
+          ORDER BY s.added_utc DESC
+          """;
         cmd.Parameters.AddWithValue("@user",userId);
         await using var r=await cmd.ExecuteReaderAsync();
         while(await r.ReadAsync())result.Add(r.GetString(0));
