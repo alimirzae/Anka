@@ -32,7 +32,9 @@ jobs:
     timeout-minutes: 45
     defaults:
       run:
-        shell: powershell
+        # Process-only policy: the self-hosted runner disables script execution by default.
+        # Do not change the machine/user execution policy or IIS permissions.
+        shell: powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ". '{0}'"
     env:
       IIS_SITE: anka.iyashil.com
       IIS_PATH: C:\inetpub\anka.iyashil.com
