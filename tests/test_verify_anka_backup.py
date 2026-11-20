@@ -176,6 +176,24 @@ class VerifyBackupTests(unittest.TestCase):
         self.save_manifest()
         self.assertNotEqual(self.verify().returncode, 0)
 
+    def test_manifest_epub_path_escape_is_rejected_without_asset_changes(self):
+        # A backup manifest is untrusted input. Neither traversal nor absolute
+        # paths may be followed, even if an external file has matching bytes.
+        outside = Path(self.tmp.name) / "outside.epub"
+        outside.write_bytes(self.epub.read_bytes())
+        original_db = self.hash(self.db)
+        original_epub = self.hash(self.epub)
+        for malicious in ("epubs/../../outside.epub", "/tmp/outside.epub",
+                          "epubs\\\\sample.epub", "C:/outside.epub"):
+            with self.subTest(path=malicious):
+                self.manifest["epubs"][0]["path"] = malicious
+                self.save_manifest()
+                result = self.verify()
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(self.hash(self.db), original_db)
+                self.assertEqual(self.hash(self.epub), original_epub)
+                self.assertEqual(outside.read_bytes(), b"epub-fixture")
+
     def test_redirected_epub_fails(self):
         outside = Path(self.tmp.name) / "outside.epub"
         outside.write_bytes(b"epub-fixture")
