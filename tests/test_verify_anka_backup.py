@@ -56,7 +56,10 @@ class VerifyBackupTests(unittest.TestCase):
     def test_backup_directory_with_uri_delimiters_is_readable(self):
         # SQLite URI paths must encode # and ? rather than treating them
         # as fragments or query parameters. Use only disposable fixtures.
-        renamed = self.root.with_name("backup # rights? edition")
+        # Windows forbids ? in directory names; # remains a valid URI delimiter
+        # regression there. POSIX additionally exercises literal ? encoding.
+        folder_name = "backup # rights edition" if sys.platform == "win32" else "backup # rights? edition"
+        renamed = self.root.with_name(folder_name)
         self.root.rename(renamed)
         self.root = renamed
         self.db = renamed / "anka.db"
