@@ -58,6 +58,10 @@ def verify(root):
     def reject_nonfinite(value):
         raise ValueError("Non-standard JSON numeric value: " + value)
 
+    # Bound untrusted manifest input before parsing to avoid memory exhaustion.
+    # 16 MiB accommodates large EPUB inventories without allowing arbitrary JSON.
+    if manifest_path.stat().st_size > 16 * 1024 * 1024:
+        raise ValueError("Backup manifest exceeds 16 MiB limit")
     manifest = json.loads(
         manifest_path.read_text(encoding="utf-8"),
         object_pairs_hook=unique_keys,
