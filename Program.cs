@@ -364,7 +364,12 @@ app.MapGet("/api/books/{id:guid}/file", async (Guid id,HttpContext context,AnkaA
     if (!string.Equals(name, id.ToString("N") + ".epub", StringComparison.OrdinalIgnoreCase))
         return Results.NotFound();
     var path = Path.Combine(storage, name);
-    return File.Exists(path) ? Results.File(path, "application/epub+zip", enableRangeProcessing: true) : Results.NotFound();
+    // A valid GUID filename is not sufficient if an attacker replaces the file
+    // with a symlink or other filesystem reparse point. Never follow such links.
+    var file = new FileInfo(path);
+    if (!file.Exists || (file.Attributes & FileAttributes.ReparsePoint) != 0)
+        return Results.NotFound();
+    return Results.File(path, "application/epub+zip", enableRangeProcessing: true);
 });
 app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts) =>
 {
