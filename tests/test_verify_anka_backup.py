@@ -87,6 +87,42 @@ class VerifyBackupTests(unittest.TestCase):
         self.assertEqual(self.hash(self.db), original_db)
         self.assertEqual(self.hash(self.epub), original_epub)
 
+    def test_hardlinked_epub_is_rejected_without_touching_external_file(self):
+        # A hard link shares storage with an external file despite not being a
+        # symlink. A restorable backup must contain independent file copies.
+        import os
+        external = Path(self.tmp.name) / "external.epub"
+        external.write_bytes(self.epub.read_bytes())
+        self.epub.unlink()
+        try:
+            os.link(external, self.epub)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Hard links unavailable: " + str(exc))
+        before_db = self.hash(self.db)
+        before_external = self.hash(external)
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Hard-linked backup file", result.stderr)
+        self.assertEqual(self.hash(self.db), before_db)
+        self.assertEqual(self.hash(external), before_external)
+
+    def test_hardlinked_database_is_rejected_without_touching_external_file(self):
+        import os
+        external = Path(self.tmp.name) / "external.db"
+        external.write_bytes(self.db.read_bytes())
+        self.db.unlink()
+        try:
+            os.link(external, self.db)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Hard links unavailable: " + str(exc))
+        before_external = self.hash(external)
+        before_epub = self.hash(self.epub)
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Hard-linked backup file", result.stderr)
+        self.assertEqual(self.hash(external), before_external)
+        self.assertEqual(self.hash(self.epub), before_epub)
+
     def test_modified_epub_fails(self):
         self.epub.write_bytes(b"tampered")
         self.assertNotEqual(self.verify().returncode, 0)
