@@ -38,6 +38,10 @@ def checked_file(root, name):
             raise ValueError("Symlink in backup path: " + name)
     if not candidate.is_file():
         raise ValueError("Missing or redirected backup file: " + name)
+    # A hard-linked file is not an independent backup snapshot: another path
+    # can modify the same inode after validation. Reject shared-link assets.
+    if candidate.stat().st_nlink > 1:
+        raise ValueError("Hard-linked backup file is not an isolated snapshot: " + name)
     if not candidate.resolve().is_relative_to(root.resolve()):
         raise ValueError("Backup path escapes root: " + name)
     return candidate
