@@ -62,6 +62,17 @@ class EpubGuardRegressionTests(unittest.TestCase):
         self.assertLess(handler.index(pragma), handler.index("CanReadAsync("))
         self.assertLess(handler.index("CanReadAsync("), handler.index("Results.File("))
 
+    def test_epub_download_disables_content_type_sniffing(self):
+        # Uploaded EPUBs are untrusted; browsers must honor the declared MIME type.
+        route = self.source.index('app.MapGet("/api/books/{id:guid}/file"')
+        end = self.source.index('app.MapPost("/api/books"', route)
+        handler = self.source[route:end]
+        nosniff = 'context.Response.Headers["X-Content-Type-Options"] = "nosniff";'
+        self.assertIn(nosniff, handler)
+        self.assertLess(handler.index(nosniff), handler.index("CanReadAsync("))
+        self.assertLess(handler.index("CanReadAsync("), handler.index("Results.File("))
+        self.assertIn('"application/epub+zip"', handler)
+
     def test_ci_discovers_security_regressions(self):
         workflow = (PROGRAM.parent / ".github/workflows/anka-deploy.yml").read_text(encoding="utf-8")
         self.assertIn("test_*.py", workflow)
