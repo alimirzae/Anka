@@ -480,7 +480,10 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
     catch (InvalidDataException e) { File.Delete(path); return Results.BadRequest(new { error = e.Message }); }
     catch (System.Xml.XmlException) { File.Delete(path); return Results.BadRequest(new { error = "Malformed EPUB XML." }); }
     catch { File.Delete(path); throw; }
-}).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin")).RequireRateLimiting("account").DisableAntiforgery();
+// Enforce the total HTTP request size before multipart parsing (including chunked bodies).
+// The EPUB file limit is 50 MiB; leave 5 MiB for form fields and multipart overhead.
+}).WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(55L * 1024 * 1024))
+  .RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin")).RequireRateLimiting("account").DisableAntiforgery();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 app.Run();
 
