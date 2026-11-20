@@ -87,6 +87,28 @@ class VerifyBackupTests(unittest.TestCase):
         self.assertEqual(self.hash(self.db), original_db)
         self.assertEqual(self.hash(self.epub), original_epub)
 
+    def test_hardlinked_manifest_is_rejected_without_reading_external_file(self):
+        # A manifest must be an independent snapshot too, not a hard link to
+        # a mutable file outside the backup directory.
+        import os
+        manifest_path = self.root / "manifest.json"
+        external = Path(self.tmp.name) / "external-manifest.json"
+        external.write_bytes(manifest_path.read_bytes())
+        manifest_path.unlink()
+        try:
+            os.link(external, manifest_path)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Hard links unavailable: " + str(exc))
+        before_external = self.hash(external)
+        before_db = self.hash(self.db)
+        before_epub = self.hash(self.epub)
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Hard-linked backup file", result.stderr)
+        self.assertEqual(self.hash(external), before_external)
+        self.assertEqual(self.hash(self.db), before_db)
+        self.assertEqual(self.hash(self.epub), before_epub)
+
     def test_hardlinked_epub_is_rejected_without_touching_external_file(self):
         # A hard link shares storage with an external file despite not being a
         # symlink. A restorable backup must contain independent file copies.
