@@ -349,6 +349,8 @@ app.MapGet("/api/books/{id:guid}/file", async (Guid id,HttpContext context,AnkaA
     // EPUB access can be revoked; prevent browsers and intermediary caches from retaining private files.
     context.Response.Headers["Cache-Control"] = "private, no-store";
     context.Response.Headers["Pragma"] = "no-cache";
+    // EPUBs are untrusted publisher uploads: never allow content-type sniffing.
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     if(!await accounts.CanReadAsync(context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value,id.ToString()))return Results.StatusCode(403);
     await using var db = new SqliteConnection(connectionString);
     await db.OpenAsync();
