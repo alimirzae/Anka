@@ -48,6 +48,20 @@ class EpubGuardRegressionTests(unittest.TestCase):
         self.assertLess(handler.index(guard), handler.index("Path.Combine(storage, name)"))
         self.assertIn("return Results.NotFound();", handler[handler.index(guard):handler.index("Path.Combine(storage, name)")])
 
+    def test_epub_download_disables_caching_before_authorization(self):
+        # Entitlements can be revoked; private EPUB bytes must not remain
+        # reusable in intermediary or browser HTTP caches.
+        route = self.source.index('app.MapGet("/api/books/{id:guid}/file"')
+        end = self.source.index('app.MapPost("/api/books"', route)
+        handler = self.source[route:end]
+        cache = 'context.Response.Headers["Cache-Control"] = "private, no-store";'
+        pragma = 'context.Response.Headers["Pragma"] = "no-cache";'
+        self.assertIn(cache, handler)
+        self.assertIn(pragma, handler)
+        self.assertLess(handler.index(cache), handler.index("CanReadAsync("))
+        self.assertLess(handler.index(pragma), handler.index("CanReadAsync("))
+        self.assertLess(handler.index("CanReadAsync("), handler.index("Results.File("))
+
     def test_ci_discovers_security_regressions(self):
         workflow = (PROGRAM.parent / ".github/workflows/anka-deploy.yml").read_text(encoding="utf-8")
         self.assertIn("test_*.py", workflow)
