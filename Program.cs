@@ -356,6 +356,11 @@ app.MapGet("/api/books/{id:guid}/file", async (Guid id,HttpContext context,AnkaA
     cmd.Parameters.AddWithValue("@id", id.ToString());
     var name = await cmd.ExecuteScalarAsync() as string;
     if (name is null) return Results.NotFound();
+    // Never trust a filename read from SQLite as a filesystem path. Uploaded
+    // assets use only the generated GUID filename, not publisher-supplied paths.
+    // Reject legacy/corrupted rows rather than serving files outside App_Data/epubs.
+    if (!string.Equals(name, id.ToString("N") + ".epub", StringComparison.OrdinalIgnoreCase))
+        return Results.NotFound();
     var path = Path.Combine(storage, name);
     return File.Exists(path) ? Results.File(path, "application/epub+zip", enableRangeProcessing: true) : Results.NotFound();
 });
