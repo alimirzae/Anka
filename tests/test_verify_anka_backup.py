@@ -194,6 +194,22 @@ class VerifyBackupTests(unittest.TestCase):
                 self.assertEqual(self.hash(self.epub), original_epub)
                 self.assertEqual(outside.read_bytes(), b"epub-fixture")
 
+    def test_database_filename_override_is_rejected_without_asset_changes(self):
+        # Never let a manifest select an arbitrary SQLite file for restore.
+        original_db = self.hash(self.db)
+        original_epub = self.hash(self.epub)
+        outside = Path(self.tmp.name) / "external.db"
+        outside.write_bytes(self.db.read_bytes())
+        for name in ("../external.db", "epubs/sample.epub", "C:/external.db", "/tmp/external.db"):
+            with self.subTest(name=name):
+                self.manifest["database"]["name"] = name
+                self.save_manifest()
+                result = self.verify()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(self.hash(self.db), original_db)
+                self.assertEqual(self.hash(self.epub), original_epub)
+                self.assertEqual(self.hash(outside), original_db)
+
     def test_redirected_manifest_fails_without_following_external_file(self):
         # The verifier must not trust a manifest symlink outside the snapshot.
         outside = Path(self.tmp.name) / "external-manifest.json"
