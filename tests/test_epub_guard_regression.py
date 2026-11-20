@@ -73,6 +73,16 @@ class EpubGuardRegressionTests(unittest.TestCase):
         self.assertLess(handler.index("CanReadAsync("), handler.index("Results.File("))
         self.assertIn('"application/epub+zip"', handler)
 
+    def test_epub_download_rejects_reparse_points(self):
+        # A valid GUID filename must not allow symlinks to external EPUB data.
+        route = self.source.index('app.MapGet("/api/books/{id:guid}/file"')
+        end = self.source.index('app.MapPost("/api/books"', route)
+        handler = self.source[route:end]
+        self.assertIn("new FileInfo(path)", handler)
+        self.assertIn("FileAttributes.ReparsePoint", handler)
+        self.assertLess(handler.index("FileAttributes.ReparsePoint"), handler.index("Results.File("))
+        self.assertIn("return Results.NotFound();", handler[handler.index("FileAttributes.ReparsePoint"):handler.index("Results.File(")])
+
     def test_ci_discovers_security_regressions(self):
         workflow = (PROGRAM.parent / ".github/workflows/anka-deploy.yml").read_text(encoding="utf-8")
         self.assertIn("test_*.py", workflow)
