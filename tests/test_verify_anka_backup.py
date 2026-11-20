@@ -73,6 +73,20 @@ class VerifyBackupTests(unittest.TestCase):
         self.assertFalse((self.root / "anka.db-wal").exists())
         self.assertFalse((self.root / "anka.db-shm").exists())
 
+    def test_oversized_manifest_is_rejected_without_touching_assets(self):
+        original_db = self.hash(self.db)
+        original_epub = self.hash(self.epub)
+        manifest_path = self.root / "manifest.json"
+        # Oversized but otherwise valid JSON must be rejected before parsing.
+        payload = dict(self.manifest)
+        payload["padding"] = "x" * (16 * 1024 * 1024)
+        manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("exceeds 16 MiB limit", result.stderr)
+        self.assertEqual(self.hash(self.db), original_db)
+        self.assertEqual(self.hash(self.epub), original_epub)
+
     def test_modified_epub_fails(self):
         self.epub.write_bytes(b"tampered")
         self.assertNotEqual(self.verify().returncode, 0)
