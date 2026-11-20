@@ -95,6 +95,11 @@ def verify(root):
         results = [row[0] for row in conn.execute("PRAGMA integrity_check")]
         if results != ["ok"]:
             raise ValueError("SQLite integrity check failed: " + str(results[:3]))
+        # integrity_check does not detect broken foreign-key relationships.
+        # Validate referential integrity before accepting a restore snapshot.
+        violations = conn.execute("PRAGMA foreign_key_check").fetchmany(3)
+        if violations:
+            raise ValueError("SQLite foreign key check failed: " + str(violations))
     seen = set()
     for entry in manifest["epubs"]:
         if not isinstance(entry, dict) or not valid_sha256(entry.get("sha256")) or type(entry.get("size")) is not int or entry["size"] < 0:
