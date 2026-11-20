@@ -37,6 +37,17 @@ class EpubGuardRegressionTests(unittest.TestCase):
             parse = self.source.index(parse_call, start)
             self.assertIn("throw new InvalidDataException", self.source[start:parse])
 
+    def test_download_filename_is_bound_to_book_guid(self):
+        # A compromised SQLite filename must never become an arbitrary disk path.
+        route = self.source.index('app.MapGet("/api/books/{id:guid}/file"')
+        end = self.source.index('app.MapPost("/api/books"', route)
+        handler = self.source[route:end]
+        guard = 'string.Equals(name, id.ToString("N") + ".epub", StringComparison.OrdinalIgnoreCase)'
+        self.assertIn(guard, handler)
+        self.assertLess(handler.index("CanReadAsync("), handler.index(guard))
+        self.assertLess(handler.index(guard), handler.index("Path.Combine(storage, name)"))
+        self.assertIn("return Results.NotFound();", handler[handler.index(guard):handler.index("Path.Combine(storage, name)")])
+
     def test_ci_discovers_security_regressions(self):
         workflow = (PROGRAM.parent / ".github/workflows/anka-deploy.yml").read_text(encoding="utf-8")
         self.assertIn("test_*.py", workflow)
