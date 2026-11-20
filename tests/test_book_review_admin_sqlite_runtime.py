@@ -191,6 +191,19 @@ class BookReviewAuthorizationTests(unittest.TestCase):
         self.assertEqual(("approved", "admin"), (state, reviewer))
         self.assertRegex(timestamp, r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$")
 
+    def test_invalid_review_state_cannot_publish_or_stamp_audit(self):
+        """Even an active administrator cannot write an arbitrary publication state."""
+        for state in ("published", "Approved", "", "approved' OR 1=1 --"):
+            with self.subTest(state=state):
+                before = self.db.execute(
+                    "SELECT state,reviewed_by,reviewed_utc FROM anka_book_moderation WHERE book_id='pending'"
+                ).fetchone()
+                self.assertEqual(0, self.review("pending", "admin", state))
+                after = self.db.execute(
+                    "SELECT state,reviewed_by,reviewed_utc FROM anka_book_moderation WHERE book_id='pending'"
+                ).fetchone()
+                self.assertEqual(before, after)
+
     def test_already_reviewed_and_missing_books_denied(self):
         for book in ("approved", "rejected", "missing"):
             with self.subTest(book=book):
