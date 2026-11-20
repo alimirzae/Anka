@@ -279,20 +279,20 @@ app.MapPost("/api/admin/editions/{id:guid}/link",async(Guid id,HttpContext conte
     if(reviewer is null||!await accounts.IsCurrentRoleAsync(reviewer,"Admin"))return Results.Forbid();
     if(!Guid.TryParse(request.WorkId,out var target))return Results.BadRequest();
     return await accounts.LinkEditionAsync(id.ToString(),target.ToString())?Results.Ok(new{ok=true}):Results.NotFound();
-}).RequireAuthorization(policy=>policy.RequireRole("Admin"));
+}).RequireAuthorization(policy=>policy.RequireRole("Admin")).RequireRateLimiting("account");
 app.MapPost("/api/admin/books/{id:guid}/access",async(Guid id,HttpContext context,AnkaAccountService accounts,AnkaAccessRequest request)=>{
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
     var admin=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if(admin is null||!await accounts.IsCurrentRoleAsync(admin,"Admin"))return Results.Forbid();
     return await accounts.SetBookAccessAsync(id.ToString(),request.Manual)?Results.Ok(new{ok=true}):Results.NotFound();
-}).RequireAuthorization(policy=>policy.RequireRole("Admin"));
+}).RequireAuthorization(policy=>policy.RequireRole("Admin")).RequireRateLimiting("account");
 app.MapPost("/api/admin/books/{id:guid}/grant",async(Guid id,HttpContext context,AnkaAccountService accounts,AnkaGrantRequest request)=>{
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
     var admin=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if(admin is null||!await accounts.IsCurrentRoleAsync(admin,"Admin"))return Results.Forbid();
     return await accounts.GrantBookToEmailAsync(request.Email??"",id.ToString(),admin,request.Reason??"")?
         Results.Ok(new{ok=true}):Results.NotFound();
-}).RequireAuthorization(policy=>policy.RequireRole("Admin"));
+}).RequireAuthorization(policy=>policy.RequireRole("Admin")).RequireRateLimiting("account");
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", app = "Anka", framework = "Blazor Server" }));
 app.MapGet("/api/catalog/status", async () =>
 {
