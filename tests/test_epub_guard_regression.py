@@ -83,6 +83,25 @@ class EpubGuardRegressionTests(unittest.TestCase):
         self.assertLess(handler.index("FileAttributes.ReparsePoint"), handler.index("Results.File("))
         self.assertIn("return Results.NotFound();", handler[handler.index("FileAttributes.ReparsePoint"):handler.index("Results.File(")])
 
+    def test_fixed_test_pin_is_development_loopback_only(self):
+        # The fixed PIN must never become a public-site authentication path.
+        route = self.source.index('app.MapPost("/api/account/test-login"')
+        start = self.source.rfind("if(app.Environment.IsDevelopment()", 0, route)
+        self.assertGreaterEqual(start, 0, "Test-login route must be inside a Development guard")
+        prefix = self.source[start:route]
+        self.assertIn('ANKA_ENABLE_LOCAL_TEST_LOGIN', prefix)
+        self.assertIn('"true"', prefix)
+        end = self.source.index('}).RequireRateLimiting("account");', route)
+        handler = self.source[route:end]
+        self.assertIn("IPAddress.IsLoopback(context.Connection.RemoteIpAddress", handler)
+        self.assertIn("IPAddress.IsLoopback(hostIp)", handler)
+        self.assertIn('context.Request.Host.Host, "localhost"', handler)
+        self.assertIn("SameOrigin(context.Request)", handler)
+        self.assertIn('input.Pin!="1234"', handler)
+        self.assertLess(handler.index("IPAddress.IsLoopback(context.Connection.RemoteIpAddress"),
+                        handler.index("context.SignInAsync("))
+        self.assertLess(handler.index('input.Pin!="1234"'), handler.index("context.SignInAsync("))
+
     def test_ci_discovers_security_regressions(self):
         workflow = (PROGRAM.parent / ".github/workflows/anka-deploy.yml").read_text(encoding="utf-8")
         self.assertIn("test_*.py", workflow)
