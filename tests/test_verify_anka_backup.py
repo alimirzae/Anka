@@ -53,6 +53,23 @@ class VerifyBackupTests(unittest.TestCase):
                  for p in self.root.rglob("*") if p.is_file()}
         self.assertEqual(before, after)
 
+    def test_backup_directory_with_uri_delimiters_is_readable(self):
+        # SQLite URI paths must encode # and ? rather than treating them
+        # as fragments or query parameters. Use only disposable fixtures.
+        renamed = self.root.with_name("backup # rights? edition")
+        self.root.rename(renamed)
+        self.root = renamed
+        self.db = renamed / "anka.db"
+        self.epub = renamed / "epubs" / "sample.epub"
+        before_db = self.hash(self.db)
+        before_epub = self.hash(self.epub)
+        result = self.verify()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.hash(self.db), before_db)
+        self.assertEqual(self.hash(self.epub), before_epub)
+        self.assertFalse((self.root / "anka.db-wal").exists())
+        self.assertFalse((self.root / "anka.db-shm").exists())
+
     def test_modified_epub_fails(self):
         self.epub.write_bytes(b"tampered")
         self.assertNotEqual(self.verify().returncode, 0)
