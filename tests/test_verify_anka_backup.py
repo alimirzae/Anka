@@ -140,6 +140,25 @@ class VerifyBackupTests(unittest.TestCase):
                 self.assertEqual(sidecar.read_bytes(), b"untracked-sqlite-state")
                 sidecar.unlink()
 
+    def test_sqlite_sidecar_symlink_is_rejected_without_following_target(self):
+        # A sidecar must be rejected even if its target is outside the backup.
+        # Only disposable fixtures are used; no production data is opened.
+        outside = Path(self.tmp.name) / "external-wal"
+        outside.write_bytes(b"external-sqlite-state")
+        original_db = self.hash(self.db)
+        original_epub = self.hash(self.epub)
+        sidecar = self.root / "anka.db-wal"
+        try:
+            sidecar.symlink_to(outside)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Symlinks unavailable: " + str(exc))
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unexpected SQLite sidecar", result.stderr)
+        self.assertEqual(outside.read_bytes(), b"external-sqlite-state")
+        self.assertEqual(self.hash(self.db), original_db)
+        self.assertEqual(self.hash(self.epub), original_epub)
+
     def test_missing_epub_fails(self):
         self.epub.unlink()
         self.assertNotEqual(self.verify().returncode, 0)
