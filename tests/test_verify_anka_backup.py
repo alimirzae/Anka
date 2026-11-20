@@ -268,6 +268,28 @@ class VerifyBackupTests(unittest.TestCase):
                 self.assertEqual(self.hash(self.epub), original_epub)
                 self.assertEqual(self.hash(outside), original_db)
 
+    def test_backup_root_symlink_is_rejected_without_following_external_data(self):
+        # Never trust a backup root redirected to a different directory.
+        # This test uses disposable fixtures only and preserves all contents.
+        redirected = Path(self.tmp.name) / "redirected-backup"
+        original_db = self.hash(self.db)
+        original_epub = self.hash(self.epub)
+        try:
+            redirected.symlink_to(self.root, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Directory symlinks unavailable: " + str(exc))
+        original_root = self.root
+        try:
+            self.root = redirected
+            result = self.verify()
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Backup must be a real directory", result.stderr)
+        finally:
+            self.root = original_root
+            redirected.unlink(missing_ok=True)
+        self.assertEqual(self.hash(self.db), original_db)
+        self.assertEqual(self.hash(self.epub), original_epub)
+
     def test_redirected_manifest_fails_without_following_external_file(self):
         # The verifier must not trust a manifest symlink outside the snapshot.
         outside = Path(self.tmp.name) / "external-manifest.json"
