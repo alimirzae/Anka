@@ -194,6 +194,35 @@ class VerifyBackupTests(unittest.TestCase):
                 self.assertEqual(self.hash(self.epub), original_epub)
                 self.assertEqual(outside.read_bytes(), b"epub-fixture")
 
+    def test_redirected_manifest_fails_without_following_external_file(self):
+        # The verifier must not trust a manifest symlink outside the snapshot.
+        outside = Path(self.tmp.name) / "external-manifest.json"
+        outside.write_text(json.dumps(self.manifest), encoding="utf-8")
+        original_db = self.hash(self.db)
+        original_epub = self.hash(self.epub)
+        (self.root / "manifest.json").unlink()
+        try:
+            (self.root / "manifest.json").symlink_to(outside)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Symlinks unavailable: " + str(exc))
+        self.assertNotEqual(self.verify().returncode, 0)
+        self.assertEqual(self.hash(self.db), original_db)
+        self.assertEqual(self.hash(self.epub), original_epub)
+
+    def test_redirected_database_fails_without_following_external_file(self):
+        # A matching digest is insufficient when the SQLite file is redirected.
+        outside = Path(self.tmp.name) / "external.db"
+        outside.write_bytes(self.db.read_bytes())
+        original_epub = self.hash(self.epub)
+        self.db.unlink()
+        try:
+            self.db.symlink_to(outside)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("Symlinks unavailable: " + str(exc))
+        self.assertNotEqual(self.verify().returncode, 0)
+        self.assertEqual(self.hash(outside), self.manifest["database"]["sha256"])
+        self.assertEqual(self.hash(self.epub), original_epub)
+
     def test_redirected_epub_fails(self):
         outside = Path(self.tmp.name) / "outside.epub"
         outside.write_bytes(b"epub-fixture")
