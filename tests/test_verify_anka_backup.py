@@ -111,6 +111,26 @@ class VerifyBackupTests(unittest.TestCase):
         for suffix in ("-wal", "-shm", "-journal"):
             self.assertFalse((self.root / ("anka.db" + suffix)).exists())
 
+    def test_broken_foreign_keys_fail_with_matching_hash(self):
+        # SQLite integrity_check alone does not validate foreign-key references.
+        # Use an isolated database with an intentionally orphaned edition.
+        original_epub = self.hash(self.epub)
+        with closing(sqlite3.connect(self.db)) as conn:
+            with conn:
+                conn.execute("CREATE TABLE works (id INTEGER PRIMARY KEY)")
+                conn.execute("CREATE TABLE linked_editions (work_id INTEGER REFERENCES works(id))")
+                conn.execute("INSERT INTO linked_editions VALUES (999)")
+        self.manifest["database"]["sha256"] = self.hash(self.db)
+        self.save_manifest()
+        original_db = self.hash(self.db)
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("foreign key check failed", result.stderr)
+        self.assertEqual(self.hash(self.db), original_db)
+        self.assertEqual(self.hash(self.epub), original_epub)
+        for suffix in ("-wal", "-shm", "-journal"):
+            self.assertFalse((self.root / ("anka.db" + suffix)).exists())
+
     def test_untracked_sqlite_sidecars_fail(self):
         for suffix in ("-wal", "-shm", "-journal"):
             with self.subTest(suffix=suffix):
