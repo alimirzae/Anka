@@ -45,6 +45,26 @@ class EpubGuardRegressionTests(unittest.TestCase):
         self.assertIn("MaxCharactersInDocument = 1024 * 1024", self.source)
         self.assertIn("MaxCharactersInDocument = 4 * 1024 * 1024", self.source)
 
+    def test_archive_bomb_limits_precede_entry_reads(self):
+        # ZIP metadata limits must be checked before any entry is opened.
+        start = self.source.index("using var archive = ZipFile.OpenRead(path);")
+        end = self.source.index('var mime = archive.GetEntry("mimetype")', start)
+        guard = self.source[start:end]
+        self.assertIn("archive.Entries.Count > 15000", guard)
+        self.assertIn("archive.Entries.Sum(e => e.Length) > 200L * 1024 * 1024", guard)
+        self.assertIn("throw new InvalidDataException", guard)
+
+    def test_multipart_upload_has_endpoint_and_server_body_limits(self):
+        # Reject oversized chunked requests before ReadFormAsync, not only after upload.
+        self.assertIn("o.Limits.MaxRequestBodySize = 60L * 1024 * 1024", self.source)
+        start = self.source.index('app.MapPost("/api/books"')
+        end = self.source.index("app.MapRazorComponents<App>()", start)
+        handler = self.source[start:end]
+        self.assertIn("RequestSizeLimitAttribute(55L * 1024 * 1024)", handler)
+        self.assertIn('RequireRateLimiting("account")', handler)
+        self.assertIn('RequireRole("Publisher","Admin")', handler)
+        self.assertIn("file.Length > 50L * 1024 * 1024", handler)
+
     def test_download_filename_is_bound_to_book_guid(self):
         # A compromised SQLite filename must never become an arbitrary disk path.
         route = self.source.index('app.MapGet("/api/books/{id:guid}/file"')
