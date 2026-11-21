@@ -153,6 +153,24 @@ class EpubGuardRegressionTests(unittest.TestCase):
         self.assertLess(handler.index('accounts.IsCurrentRoleAsync(reviewer,"Admin")'),
                         handler.index("accounts.LinkEditionAsync("))
 
+    def test_admin_review_endpoints_require_live_admin_and_same_origin(self):
+        # Publisher and book approvals must not rely on stale cookie claims.
+        for route, action in (
+            ('/api/admin/publishers/{id:guid}/review', 'accounts.ReviewPublisherAsync('),
+            ('/api/admin/submissions/{id:guid}/review', 'accounts.ReviewBookAsync('),
+        ):
+            with self.subTest(route=route):
+                start = self.source.index('app.MapPost("' + route + '"')
+                end = self.source.index('}).RequireAuthorization(', start)
+                handler = self.source[start:end]
+                self.assertIn('SameOrigin(context.Request)', handler)
+                self.assertIn('accounts.IsCurrentRoleAsync(reviewer,"Admin")', handler)
+                self.assertLess(handler.index('SameOrigin(context.Request)'), handler.index(action))
+                self.assertLess(handler.index('accounts.IsCurrentRoleAsync(reviewer,"Admin")'), handler.index(action))
+                policy = self.source[end:self.source.index(';', end) + 1]
+                self.assertIn('RequireRole("Admin")', policy)
+                self.assertIn('RequireRateLimiting("account")', policy)
+
     def test_ci_discovers_security_regressions(self):
         workflow = (PROGRAM.parent / ".github/workflows/anka-deploy.yml").read_text(encoding="utf-8")
         self.assertIn("test_*.py", workflow)
