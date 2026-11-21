@@ -211,7 +211,7 @@ app.MapGet("/api/account/me",(ClaimsPrincipal user)=>Results.Ok(new{
 app.MapGet("/api/me/shelf",async (ClaimsPrincipal user,AnkaAccountService accounts)=>{
     var id=user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     return id is null?Results.Unauthorized():Results.Ok(await accounts.ShelfAsync(id));
-}).RequireAuthorization();
+}).RequireAuthorization().RequireRateLimiting("account");
 app.MapPost("/api/me/shelf/{bookId:guid}",async (Guid bookId,HttpContext context,AnkaAccountService accounts)=>{
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
     var id=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
