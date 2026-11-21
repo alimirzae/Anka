@@ -261,7 +261,7 @@ app.MapGet("/api/publisher/my-submissions",async(HttpContext context,AnkaAccount
     if(!await accounts.IsCurrentRoleAsync(userId,"Publisher") &&
        !await accounts.IsCurrentRoleAsync(userId,"Admin"))return Results.Forbid();
     return Results.Ok(await accounts.MyBookSubmissionsAsync(userId));
-}).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin"));
+}).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin")).RequireRateLimiting("account");
 app.MapGet("/api/admin/submissions",async(HttpContext context,AnkaAccountService accounts)=>{
     var admin=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if(admin is null||!await accounts.IsCurrentRoleAsync(admin,"Admin"))return Results.Forbid();
