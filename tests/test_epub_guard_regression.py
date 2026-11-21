@@ -45,6 +45,15 @@ class EpubGuardRegressionTests(unittest.TestCase):
         self.assertIn("MaxCharactersInDocument = 1024 * 1024", self.source)
         self.assertIn("MaxCharactersInDocument = 4 * 1024 * 1024", self.source)
 
+    def test_uploaded_edition_language_is_allowlisted(self):
+        # API callers cannot bypass the UI language choices to insert arbitrary scripts.
+        start = self.source.index('app.MapPost("/api/books"')
+        handler = self.source[start:]
+        guard = 'language is not ("az-Arab" or "az-Latn" or "tr" or "fa" or "en")'
+        self.assertIn(guard, handler)
+        self.assertIn('throw new InvalidDataException("Unsupported edition language.")', handler)
+        self.assertLess(handler.index(guard), handler.index("INSERT INTO anka_editions"))
+
     def test_archive_bomb_limits_precede_entry_reads(self):
         # ZIP metadata limits must be checked before any entry is opened.
         start = self.source.index("using var archive = ZipFile.OpenRead(path);")
