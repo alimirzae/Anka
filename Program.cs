@@ -82,6 +82,8 @@ app.Use(async (context, next) =>
     context.Response.OnStarting(() =>
     {
         context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
+        // Prevent third-party framing of login, publisher and admin screens.
+        context.Response.Headers.TryAdd("X-Frame-Options", "DENY");
         context.Response.Headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
         // Account, publisher and administrator API responses may contain private data.
         // Prevent intermediary and browser caches from retaining these responses.
