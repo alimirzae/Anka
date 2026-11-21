@@ -328,7 +328,7 @@ app.MapGet("/api/books/{id:guid}/reading-status", async (Guid id, HttpContext co
     }
     catch(FileNotFoundException){ return Results.NotFound(new {error="Book not found"}); }
     catch(InvalidDataException){ return Results.Problem("EPUB cannot be parsed",statusCode:422); }
-});
+}).RequireRateLimiting("account");
 app.MapGet("/api/books", async () =>
 {
     var books = new List<BookListItem>();
