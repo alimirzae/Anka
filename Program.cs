@@ -324,7 +324,7 @@ app.MapGet("/api/books/{id:guid}/reading-status", async (Guid id, HttpContext co
     try
     {
         var book=await reader.OpenAsync(id);
-        return Results.Ok(new { id, title=book.Title, pages=book.Pages.Count, characters=book.Pages.Sum(p=>p.Paragraphs.Sum(t=>t.Length)), firstPage=book.Pages[0].Paragraphs.Count });
+        return Results.Ok(new { id, title=book.Title, pages=book.Pages.Count, characters=book.Pages.Sum(p=>p.Paragraphs.Sum(t=>t.Length)), firstPage=book.Pages.Count > 0 ? book.Pages[0].Paragraphs.Count : 0 });
     }
     catch(FileNotFoundException){ return Results.NotFound(new {error="Book not found"}); }
     catch(InvalidDataException){ return Results.Problem("EPUB cannot be parsed",statusCode:422); }
