@@ -28,14 +28,22 @@ class EpubGuardRegressionTests(unittest.TestCase):
 
     def test_xml_metadata_bounds_precede_parsing(self):
         for entry, limit, parse_call in (
-            ("container", "1024 * 1024", "XDocument.Load(stream)"),
-            ("opf", "4 * 1024 * 1024", "XDocument.Load(stream)"),
+            ("container", "1024 * 1024", "XDocument.Load(reader)"),
+            ("opf", "4 * 1024 * 1024", "XDocument.Load(reader)"),
         ):
             guard = f"{entry}.Length > {limit}"
             self.assertIn(guard, self.source)
             start = self.source.index(guard)
             parse = self.source.index(parse_call, start)
             self.assertIn("throw new InvalidDataException", self.source[start:parse])
+
+    def test_epub_metadata_xml_disallows_dtd_and_external_resolution(self):
+        # Both untrusted metadata documents must use explicitly hardened XML readers.
+        self.assertEqual(self.source.count("DtdProcessing = System.Xml.DtdProcessing.Prohibit"), 2)
+        self.assertEqual(self.source.count("XmlResolver = null"), 2)
+        self.assertEqual(self.source.count("XDocument.Load(reader)"), 2)
+        self.assertIn("MaxCharactersInDocument = 1024 * 1024", self.source)
+        self.assertIn("MaxCharactersInDocument = 4 * 1024 * 1024", self.source)
 
     def test_download_filename_is_bound_to_book_guid(self):
         # A compromised SQLite filename must never become an arbitrary disk path.
