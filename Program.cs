@@ -395,8 +395,21 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         // must not leave partial EPUB files in persistent App_Data storage.
         await using (var dest = File.Create(path)) await file.CopyToAsync(dest);
         using var archive = ZipFile.OpenRead(path);
+        // Validate untrusted archive paths and duplicate entries before metadata parsing.
         if (archive.Entries.Count > 15000 || archive.Entries.Sum(e => e.Length) > 200L * 1024 * 1024)
             throw new InvalidDataException("EPUB exceeds limits.");
+        var entryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in archive.Entries)
+        {
+            var entryName = entry.FullName;
+            if (string.IsNullOrWhiteSpace(entryName) || entryName.StartsWith('/') ||
+                entryName.Contains('\\') || entryName.Split('/').Any(part => part is "." or "..") ||
+                !entryNames.Add(entryName))
+                throw new InvalidDataException("Unsafe or duplicate EPUB archive entry.");
+            if (entry.Length > 1024 * 1024 &&
+                (entry.CompressedLength == 0 || entry.Length / Math.Max(1L, entry.CompressedLength) > 1000))
+                throw new InvalidDataException("EPUB archive expansion ratio exceeds limit.");
+        }
         var mime = archive.GetEntry("mimetype") ?? throw new InvalidDataException("EPUB mimetype missing.");
         // The EPUB mimetype is a tiny fixed literal; reject oversized decompressed entries.
         // This avoids reading attacker-controlled multi-megabyte text into memory.
