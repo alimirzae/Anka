@@ -171,6 +171,20 @@ class EpubGuardRegressionTests(unittest.TestCase):
                 self.assertIn('RequireRole("Admin")', policy)
                 self.assertIn('RequireRateLimiting("account")', policy)
 
+    def test_reading_diagnostics_authorize_before_open_and_handle_empty_pages(self):
+        # Empty-but-parseable EPUB page collections must not trigger a 500.
+        # Diagnostics also must not open private content before entitlement checks.
+        start = self.source.index('app.MapGet("/api/books/{id:guid}/reading-status"')
+        end = self.source.index('app.MapGet("/api/books"', start)
+        handler = self.source[start:end]
+        self.assertIn('context.Response.Headers["Cache-Control"] = "private, no-store"', handler)
+        self.assertIn('accounts.CanReadAsync(', handler)
+        self.assertIn('reader.OpenAsync(id)', handler)
+        self.assertLess(handler.index('accounts.CanReadAsync('), handler.index('reader.OpenAsync(id)'))
+        self.assertIn('book.Pages.Count > 0 ? book.Pages[0].Paragraphs.Count : 0', handler)
+        self.assertIn('catch(InvalidDataException)', handler)
+        self.assertIn('RequireRateLimiting("account")', handler)
+
     def test_ci_discovers_security_regressions(self):
         workflow = (PROGRAM.parent / ".github/workflows/anka-deploy.yml").read_text(encoding="utf-8")
         self.assertIn("test_*.py", workflow)
