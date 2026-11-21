@@ -219,7 +219,7 @@ app.MapPost("/api/me/shelf/{bookId:guid}",async (Guid bookId,HttpContext context
     if(!await accounts.CanReadAsync(id,bookId.ToString()))return Results.StatusCode(403);
     await accounts.AddToShelfAsync(id,bookId.ToString());
     return Results.Ok(new{ok=true});
-}).RequireAuthorization();
+}).RequireAuthorization().RequireRateLimiting("account");
 
 app.MapPost("/api/admin/bootstrap",async(HttpContext context,AnkaAccountService accounts)=>{
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
