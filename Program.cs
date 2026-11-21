@@ -407,7 +407,14 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         if (container.Length > 1024 * 1024)
             throw new InvalidDataException("EPUB container metadata exceeds 1MB.");
         XDocument xml;
-        using (var stream = container.Open()) xml = XDocument.Load(stream);
+        using (var stream = container.Open())
+        using (var reader = System.Xml.XmlReader.Create(stream, new System.Xml.XmlReaderSettings
+        {
+            DtdProcessing = System.Xml.DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersInDocument = 1024 * 1024
+        }))
+            xml = XDocument.Load(reader);
         var opfPath = xml.Descendants().FirstOrDefault(x => x.Name.LocalName == "rootfile")?.Attribute("full-path")?.Value;
         if (string.IsNullOrEmpty(opfPath) || opfPath.StartsWith('/') || opfPath.Contains("..") || opfPath.Contains('\\'))
             throw new InvalidDataException("Invalid package path.");
@@ -415,7 +422,14 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         if (opf.Length > 4 * 1024 * 1024)
             throw new InvalidDataException("EPUB package metadata exceeds 4MB.");
         XDocument package;
-        using (var stream = opf.Open()) package = XDocument.Load(stream);
+        using (var stream = opf.Open())
+        using (var reader = System.Xml.XmlReader.Create(stream, new System.Xml.XmlReaderSettings
+        {
+            DtdProcessing = System.Xml.DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersInDocument = 4 * 1024 * 1024
+        }))
+            package = XDocument.Load(reader);
         string meta(string tag) => package.Descendants().FirstOrDefault(x => x.Name.LocalName == tag)?.Value.Trim() ?? "";
         string value(string key, string fallback) => string.IsNullOrWhiteSpace(form[key]) ? fallback : form[key].ToString().Trim();
         var title = value("title", meta("title"));
