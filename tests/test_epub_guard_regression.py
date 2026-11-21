@@ -139,6 +139,20 @@ class EpubGuardRegressionTests(unittest.TestCase):
                         handler.index("context.SignInAsync("))
         self.assertLess(handler.index('input.Pin!="1234"'), handler.index("context.SignInAsync("))
 
+    def test_admin_edition_link_requires_live_admin_and_same_origin(self):
+        # A forged cookie role or cross-origin POST must not regroup editions.
+        start = self.source.index('app.MapPost("/api/admin/editions/{id:guid}/link"')
+        end = self.source.index('app.MapPost("/api/admin/books/{id:guid}/access"', start)
+        handler = self.source[start:end]
+        self.assertIn("SameOrigin(context.Request)", handler)
+        self.assertIn('accounts.IsCurrentRoleAsync(reviewer,"Admin")', handler)
+        self.assertIn('RequireRole("Admin")', handler)
+        self.assertIn('RequireRateLimiting("account")', handler)
+        self.assertLess(handler.index("SameOrigin(context.Request)"),
+                        handler.index("accounts.LinkEditionAsync("))
+        self.assertLess(handler.index('accounts.IsCurrentRoleAsync(reviewer,"Admin")'),
+                        handler.index("accounts.LinkEditionAsync("))
+
     def test_ci_discovers_security_regressions(self):
         workflow = (PROGRAM.parent / ".github/workflows/anka-deploy.yml").read_text(encoding="utf-8")
         self.assertIn("test_*.py", workflow)
