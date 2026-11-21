@@ -207,7 +207,7 @@ app.MapGet("/api/account/me",(ClaimsPrincipal user)=>Results.Ok(new{
     authenticated=user.Identity?.IsAuthenticated==true,
     name=user.Identity?.Name,
     role=user.FindFirst(ClaimTypes.Role)?.Value
-}));
+})).RequireRateLimiting("account");
 app.MapGet("/api/me/shelf",async (ClaimsPrincipal user,AnkaAccountService accounts)=>{
     var id=user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     return id is null?Results.Unauthorized():Results.Ok(await accounts.ShelfAsync(id));
