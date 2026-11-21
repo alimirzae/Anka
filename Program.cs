@@ -440,6 +440,10 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
         var translator = value("translator","");
         var publisherName = value("publisherName","");
         if (string.IsNullOrWhiteSpace(title)) title = Path.GetFileNameWithoutExtension(file.FileName);
+        // Accept only the supported edition language/script combinations, even for direct API uploads.
+        // An arbitrary language label must not be treated as a verified translation.
+        if (language is not ("az-Arab" or "az-Latn" or "tr" or "fa" or "en"))
+            throw new InvalidDataException("Unsupported edition language.");
         if (!new[]{"General","Literature","Poetry","History","Children","Science"}.Contains(category))
             throw new InvalidDataException("Invalid book category.");
         if (description.Length>2000||translator.Length>150||publisherName.Length>150)
