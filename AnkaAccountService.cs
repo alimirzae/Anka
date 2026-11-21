@@ -88,6 +88,25 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
               created_utc TEXT NOT NULL,
               reviewed_utc TEXT
             );
+            CREATE TABLE IF NOT EXISTS anka_book_review_history(
+              id INTEGER PRIMARY KEY,
+              book_id TEXT NOT NULL,
+              previous_state TEXT NOT NULL,
+              new_state TEXT NOT NULL,
+              reviewer_id TEXT NOT NULL,
+              rights_statement TEXT NOT NULL,
+              reviewed_utc TEXT NOT NULL
+            );
+            CREATE TRIGGER IF NOT EXISTS anka_record_book_review
+            AFTER UPDATE OF state ON anka_book_moderation
+            WHEN OLD.state='pending' AND NEW.state IN ('approved','rejected')
+              AND NEW.reviewed_by IS NOT NULL AND NEW.reviewed_utc IS NOT NULL
+            BEGIN
+              INSERT INTO anka_book_review_history(
+                book_id,previous_state,new_state,reviewer_id,rights_statement,reviewed_utc)
+              VALUES(NEW.book_id,OLD.state,NEW.state,NEW.reviewed_by,
+                NEW.rights_statement,NEW.reviewed_utc);
+            END;
             CREATE TABLE IF NOT EXISTS anka_publisher_submissions(
               id TEXT PRIMARY KEY,
               user_id TEXT NOT NULL,
