@@ -389,9 +389,11 @@ app.MapPost("/api/books", async (HttpRequest request,AnkaAccountService accounts
     var id = Guid.NewGuid();
     var name = id.ToString("N") + ".epub";
     var path = Path.Combine(storage, name);
-    await using (var dest = File.Create(path)) await file.CopyToAsync(dest);
     try
     {
+        // Include the initial stream copy in cleanup: aborted multipart uploads
+        // must not leave partial EPUB files in persistent App_Data storage.
+        await using (var dest = File.Create(path)) await file.CopyToAsync(dest);
         using var archive = ZipFile.OpenRead(path);
         if (archive.Entries.Count > 15000 || archive.Entries.Sum(e => e.Length) > 200L * 1024 * 1024)
             throw new InvalidDataException("EPUB exceeds limits.");
