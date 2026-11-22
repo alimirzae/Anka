@@ -78,6 +78,46 @@ class PublisherApprovalSqlTests(unittest.TestCase):
         self.assertEqual(self.db.execute(self.review_sql, {"state": "rejected", "id": "applicant", "reviewer": "admin"}).rowcount, 1)
         self.assertEqual(self.db.execute("SELECT role FROM anka_users WHERE id='applicant'").fetchone()[0], "Reader")
 
+    def test_approval_and_promotion_commit_together(self):
+        with self.db:
+            changed = self.db.execute(self.review_sql, {
+                "state": "approved", "id": "applicant", "reviewer": "admin"
+            }).rowcount
+            self.assertEqual(changed, 1)
+            promoted = self.db.execute(self.promote_sql, {"id": "applicant"}).rowcount
+            self.assertEqual(promoted, 1)
+        self.assertEqual(self.db.execute(
+            "SELECT state FROM anka_publisher_requests WHERE user_id='applicant'"
+        ).fetchone()[0], "approved")
+        self.assertEqual(self.db.execute(
+            "SELECT role FROM anka_users WHERE id='applicant'"
+        ).fetchone()[0], "Publisher")
+
+    def test_failed_promotion_rolls_back_approval(self):
+        # Model the production rollback path if the role update affects no row.
+        self.db.execute("BEGIN")
+        try:
+            changed = self.db.execute(self.review_sql, {
+                "state": "approved", "id": "applicant", "reviewer": "admin"
+            }).rowcount
+            self.assertEqual(changed, 1)
+            # A concurrent role change before promotion must not leave an
+            # approved request without a matching Publisher role.
+            self.db.execute("UPDATE anka_users SET role='Reader' WHERE id='applicant'")
+            self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='applicant'")
+            promoted = self.db.execute(self.promote_sql, {"id": "applicant"}).rowcount
+            self.assertEqual(promoted, 0)
+            self.db.rollback()
+        except BaseException:
+            self.db.rollback()
+            raise
+        self.assertEqual(self.db.execute(
+            "SELECT state FROM anka_publisher_requests WHERE user_id='applicant'"
+        ).fetchone()[0], "pending")
+        self.assertEqual(self.db.execute(
+            "SELECT disabled FROM anka_users WHERE id='applicant'"
+        ).fetchone()[0], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
