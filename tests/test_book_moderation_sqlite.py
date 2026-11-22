@@ -1,0 +1,107 @@
+"""Isolated regression tests for book moderation authorization and audit SQL.
+
+The production UPDATE statement is extracted from AnkaAccountService.cs.
+No production SQLite database or EPUB is accessed.
+"""
+import pathlib
+import re
+import sqlite3
+import unittest
+
+SOURCE = (pathlib.Path(__file__).resolve().parents[1] / "AnkaAccountService.cs").read_text(encoding="utf-8")
+MATCH = re.search(r'cmd\.CommandText="(UPDATE anka_book_moderation SET state=.*?)";', SOURCE)
+if MATCH is None:
+    raise RuntimeError("Book moderation SQL not found")
+REVIEW_SQL = MATCH.group(1)
+
+
+class BookModerationSqlTests(unittest.TestCase):
+    def setUp(self):
+        self.db = sqlite3.connect(":memory:")
+        self.addCleanup(self.db.close)
+        self.db.executescript("""
+            CREATE TABLE books(id TEXT PRIMARY KEY);
+            CREATE TABLE anka_users(id TEXT PRIMARY KEY, role TEXT, disabled INTEGER);
+            CREATE TABLE anka_book_moderation(
+                book_id TEXT PRIMARY KEY, uploader_id TEXT, rights_statement TEXT,
+                state TEXT, reviewed_by TEXT, created_utc TEXT, reviewed_utc TEXT
+            );
+            CREATE TABLE anka_book_review_history(
+                id INTEGER PRIMARY KEY, book_id TEXT, previous_state TEXT,
+                new_state TEXT, reviewer_id TEXT, rights_statement TEXT, reviewed_utc TEXT
+            );
+            CREATE TRIGGER anka_record_book_review
+            AFTER UPDATE OF state ON anka_book_moderation
+            WHEN OLD.state='pending' AND NEW.state IN ('approved','rejected')
+              AND NEW.reviewed_by IS NOT NULL AND NEW.reviewed_utc IS NOT NULL
+            BEGIN
+              INSERT INTO anka_book_review_history(
+                book_id,previous_state,new_state,reviewer_id,rights_statement,reviewed_utc)
+              VALUES(NEW.book_id,OLD.state,NEW.state,NEW.reviewed_by,
+                NEW.rights_statement,NEW.reviewed_utc);
+            END;
+            INSERT INTO books VALUES('book');
+            INSERT INTO anka_users VALUES('uploader','Publisher',0);
+            INSERT INTO anka_users VALUES('admin','Admin',0);
+            INSERT INTO anka_book_moderation VALUES(
+                'book','uploader','Licensed publication rights','pending',NULL,'now',NULL
+            );
+        """)
+
+    def review(self, state="approved", reviewer="admin"):
+        return self.db.execute(REVIEW_SQL, {
+            "state": state, "reviewer": reviewer, "id": "book"
+        }).rowcount
+
+    def test_active_admin_approves_and_audits_once(self):
+        self.assertEqual(self.review(), 1)
+        self.assertEqual(self.review(), 0)
+        self.assertEqual(self.db.execute(
+            "SELECT new_state,reviewer_id FROM anka_book_review_history"
+        ).fetchall(), [("approved", "admin")])
+
+    def test_active_admin_can_reject(self):
+        self.assertEqual(self.review("rejected"), 1)
+
+    def test_uploader_cannot_review_own_book(self):
+        self.db.execute("UPDATE anka_users SET role='Admin' WHERE id='uploader'")
+        self.assertEqual(self.review(reviewer="uploader"), 0)
+
+    def test_disabled_admin_cannot_review(self):
+        self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='admin'")
+        self.assertEqual(self.review(), 0)
+
+    def test_revoked_admin_cannot_review(self):
+        self.db.execute("UPDATE anka_users SET role='Reader' WHERE id='admin'")
+        self.assertEqual(self.review(), 0)
+
+    def test_unknown_admin_cannot_review(self):
+        self.assertEqual(self.review(reviewer="missing"), 0)
+
+    def test_missing_book_cannot_be_approved(self):
+        self.db.execute("DELETE FROM books WHERE id='book'")
+        self.assertEqual(self.review(), 0)
+
+    def test_disabled_uploader_cannot_be_approved(self):
+        self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='uploader'")
+        self.assertEqual(self.review(), 0)
+
+    def test_insufficient_rights_cannot_be_approved(self):
+        self.db.execute("UPDATE anka_book_moderation SET rights_statement='no' ")
+        self.assertEqual(self.review(), 0)
+
+    def test_invalid_transition_does_not_change_state(self):
+        self.assertEqual(self.review("published"), 0)
+        self.assertEqual(self.db.execute(
+            "SELECT state FROM anka_book_moderation"
+        ).fetchone()[0], "pending")
+
+    def test_denied_review_creates_no_audit_entry(self):
+        self.assertEqual(self.review(reviewer="uploader"), 0)
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM anka_book_review_history"
+        ).fetchone()[0], 0)
+
+
+if __name__ == "__main__":
+    unittest.main()
