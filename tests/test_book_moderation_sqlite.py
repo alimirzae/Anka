@@ -102,6 +102,35 @@ class BookModerationSqlTests(unittest.TestCase):
             "SELECT count(*) FROM anka_book_review_history"
         ).fetchone()[0], 0)
 
+    def test_rejection_allowed_when_rights_are_insufficient(self):
+        self.db.execute("UPDATE anka_book_moderation SET rights_statement='no'")
+        self.assertEqual(self.review("rejected"), 1)
+        self.assertEqual(self.db.execute(
+            "SELECT new_state FROM anka_book_review_history"
+        ).fetchall(), [("rejected",)])
+
+    def test_rejection_allowed_when_uploader_disabled(self):
+        self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='uploader'")
+        self.assertEqual(self.review("rejected"), 1)
+
+    def test_rights_statement_minimum_length_is_enforced(self):
+        self.db.execute("UPDATE anka_book_moderation SET rights_statement=?", ("x" * 11,))
+        self.assertEqual(self.review(), 0)
+        self.db.execute("UPDATE anka_book_moderation SET rights_statement=?", ("x" * 12,))
+        self.assertEqual(self.review(), 1)
+
+    def test_rights_statement_maximum_length_is_enforced(self):
+        self.db.execute("UPDATE anka_book_moderation SET rights_statement=?", ("x" * 2001,))
+        self.assertEqual(self.review(), 0)
+        self.db.execute("UPDATE anka_book_moderation SET rights_statement=?", ("x" * 2000,))
+        self.assertEqual(self.review(), 1)
+
+    def test_review_history_preserves_rights_statement(self):
+        self.assertEqual(self.review(), 1)
+        self.assertEqual(self.db.execute(
+            "SELECT rights_statement FROM anka_book_review_history"
+        ).fetchone()[0], "Licensed publication rights")
+
 
 if __name__ == "__main__":
     unittest.main()
