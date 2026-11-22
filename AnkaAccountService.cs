@@ -233,14 +233,15 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         cmd.Parameters.AddWithValue("@id",userId);cmd.Parameters.AddWithValue("@text",statement);
         return await cmd.ExecuteNonQueryAsync()>0;
     }
-    public async Task<bool> ReviewPublisherAsync(string userId,bool approve)
+    public async Task<bool> ReviewPublisherAsync(string userId,string reviewerId,bool approve)
     {
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
         await using var transaction=await db.BeginTransactionAsync();
         await using var cmd=db.CreateCommand();cmd.Transaction=(SqliteTransaction)transaction;
-        cmd.CommandText="UPDATE anka_publisher_requests SET state=@state,reviewed_utc=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id=@id AND state='pending' AND EXISTS(SELECT 1 FROM anka_users applicant WHERE applicant.id=anka_publisher_requests.user_id AND applicant.role='Reader' AND applicant.disabled=0)";
+        cmd.CommandText="UPDATE anka_publisher_requests SET state=@state,reviewed_utc=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id=@id AND state='pending' AND EXISTS(SELECT 1 FROM anka_users applicant WHERE applicant.id=anka_publisher_requests.user_id AND applicant.role='Reader' AND applicant.disabled=0) AND user_id<>@reviewer AND EXISTS(SELECT 1 FROM anka_users reviewer WHERE reviewer.id=@reviewer AND reviewer.role='Admin' AND reviewer.disabled=0)";
         cmd.Parameters.AddWithValue("@state",approve?"approved":"rejected");
         cmd.Parameters.AddWithValue("@id",userId);
+        cmd.Parameters.AddWithValue("@reviewer",reviewerId);
         if(await cmd.ExecuteNonQueryAsync()!=1)return false;
         if(approve){
             // Approval and role assignment must succeed together. A disabled or
