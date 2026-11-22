@@ -256,7 +256,7 @@ app.MapPost("/api/admin/publishers/{id:guid}/review",async(Guid id,HttpContext c
     // A reviewer must not approve or reject their own publisher application.
     // This check is independent of the role claim stored in the login cookie.
     if(string.Equals(reviewer,id.ToString(),StringComparison.OrdinalIgnoreCase))return Results.Forbid();
-    return await accounts.ReviewPublisherAsync(id.ToString(),review.Approve)?Results.Ok(new{ok=true}):Results.NotFound();
+    return await accounts.ReviewPublisherAsync(id.ToString(),reviewer,review.Approve)?Results.Ok(new{ok=true}):Results.NotFound();
 }).RequireAuthorization(policy=>policy.RequireRole("Admin")).RequireRateLimiting("account");
 app.MapGet("/api/publisher/my-submissions",async(HttpContext context,AnkaAccountService accounts)=>{
     var userId=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
