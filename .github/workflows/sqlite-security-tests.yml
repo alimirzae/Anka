@@ -1,0 +1,28 @@
+name: SQLite security regressions
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  moderation-sql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run isolated moderation tests
+        run: python -m unittest discover -s tests -p 'test_*sqlite.py' -v
+      - name: Run book moderation edge cases
+        run: python -m unittest discover -s tests -p 'test_book_moderation_edge_cases.py' -v
