@@ -253,6 +253,9 @@ app.MapPost("/api/admin/publishers/{id:guid}/review",async(Guid id,HttpContext c
     if(!SameOrigin(context.Request))return Results.StatusCode(403);
     var reviewer=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if(reviewer is null||!await accounts.IsCurrentRoleAsync(reviewer,"Admin"))return Results.Forbid();
+    // A reviewer must not approve or reject their own publisher application.
+    // This check is independent of the role claim stored in the login cookie.
+    if(string.Equals(reviewer,id.ToString(),StringComparison.OrdinalIgnoreCase))return Results.Forbid();
     return await accounts.ReviewPublisherAsync(id.ToString(),review.Approve)?Results.Ok(new{ok=true}):Results.NotFound();
 }).RequireAuthorization(policy=>policy.RequireRole("Admin")).RequireRateLimiting("account");
 app.MapGet("/api/publisher/my-submissions",async(HttpContext context,AnkaAccountService accounts)=>{
