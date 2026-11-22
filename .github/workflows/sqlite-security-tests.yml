@@ -22,7 +22,19 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Run isolated moderation tests
-        run: python -m unittest discover -s tests -p 'test_*sqlite.py' -v
-      - name: Run book moderation edge cases
-        run: python -m unittest discover -s tests -p 'test_book_moderation_edge_cases.py' -v
+      - name: Run all isolated security regressions (fail if none discovered)
+        run: |
+          python - <<'PY'
+          import sys
+          import unittest
+
+          suite = unittest.defaultTestLoader.discover(
+              start_dir="tests", pattern="test_*.py"
+          )
+          count = suite.countTestCases()
+          print(f"Discovered {count} tests", flush=True)
+          if count == 0:
+              sys.exit("Security test discovery returned zero tests")
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          sys.exit(0 if result.wasSuccessful() else 1)
+          PY
