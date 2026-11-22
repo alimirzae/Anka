@@ -51,6 +51,14 @@ class PublisherApprovalSqlTests(unittest.TestCase):
         self.assertEqual(self.db.execute(self.review_sql, {"state": "approved", "id": "applicant", "reviewer": "admin"}).rowcount, 0)
 
 
+    def test_unrecognized_review_state_is_rejected_by_database(self):
+        self.assertEqual(self.db.execute(self.review_sql, {
+            "state": "published", "id": "applicant", "reviewer": "admin"
+        }).rowcount, 0)
+        self.assertEqual(self.db.execute(
+            "SELECT state FROM anka_publisher_requests WHERE user_id='applicant'"
+        ).fetchone()[0], "pending")
+
     def test_disabled_admin_cannot_review(self):
         self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='admin'")
         self.assertEqual(self.db.execute(self.review_sql, {"state": "approved", "id": "applicant", "reviewer": "admin"}).rowcount, 0)
