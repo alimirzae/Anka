@@ -196,6 +196,16 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
             BEGIN
               SELECT RAISE(ABORT, 'book review audit is append-only');
             END;
+            -- Private evidence is stored in SQLite, never under the public web root.
+            CREATE TABLE IF NOT EXISTS anka_book_rights_evidence(
+              id TEXT PRIMARY KEY,
+              book_id TEXT NOT NULL,
+              uploader_id TEXT NOT NULL,
+              pdf_bytes BLOB NOT NULL CHECK(length(pdf_bytes) BETWEEN 5 AND 5242880),
+              created_utc TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS anka_book_rights_evidence_book
+              ON anka_book_rights_evidence(book_id);
             CREATE TABLE IF NOT EXISTS anka_publisher_submissions(
               id TEXT PRIMARY KEY,
               user_id TEXT NOT NULL,
@@ -403,6 +413,41 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         await using var r=await cmd.ExecuteReaderAsync();
         while(await r.ReadAsync())result.Add(new(r.GetString(0),r.GetString(1),r.GetString(2),r.GetString(3)));
         return result;
+    }
+    // The caller must obtain actorId from the authenticated server-side identity.
+    // Only pending submissions owned by an active publisher/admin accept evidence.
+    public async Task<string?> AddBookRightsEvidenceAsync(string bookId,string actorId,byte[] pdf)
+    {
+        if(pdf.Length<5||pdf.Length>5242880||pdf[0]!=37||pdf[1]!=80||pdf[2]!=68||pdf[3]!=70||pdf[4]!=45)return null;
+        var id=Guid.NewGuid().ToString("N");
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+          INSERT INTO anka_book_rights_evidence(id,book_id,uploader_id,pdf_bytes,created_utc)
+          SELECT @id,m.book_id,@actor,@pdf,strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          FROM anka_book_moderation m JOIN anka_users u ON u.id=m.uploader_id
+          WHERE m.book_id=@book AND m.uploader_id=@actor AND m.state='pending'
+            AND u.disabled=0 AND u.role IN ('Publisher','Admin')
+            AND (SELECT count(*) FROM anka_book_rights_evidence e WHERE e.book_id=m.book_id)<3
+          """;
+        cmd.Parameters.AddWithValue("@id",id);cmd.Parameters.AddWithValue("@book",bookId);
+        cmd.Parameters.AddWithValue("@actor",actorId);cmd.Parameters.AddWithValue("@pdf",pdf);
+        return await cmd.ExecuteNonQueryAsync()==1?id:null;
+    }
+    // Return only to an active administrator or the active owner of the submission.
+    public async Task<byte[]?> ReadBookRightsEvidenceAsync(string evidenceId,string actorId)
+    {
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+          SELECT e.pdf_bytes FROM anka_book_rights_evidence e
+          JOIN anka_book_moderation m ON m.book_id=e.book_id
+          JOIN anka_users u ON u.id=@actor
+          WHERE e.id=@id AND u.disabled=0
+            AND (u.role='Admin' OR (u.role='Publisher' AND m.uploader_id=u.id AND e.uploader_id=u.id))
+          """;
+        cmd.Parameters.AddWithValue("@id",evidenceId);cmd.Parameters.AddWithValue("@actor",actorId);
+        return await cmd.ExecuteScalarAsync() as byte[];
     }
     public async Task<bool> ReviewBookAsync(string bookId,string reviewerId,bool approve)
     {
