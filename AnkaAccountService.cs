@@ -173,6 +173,18 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
               VALUES(NEW.book_id,OLD.state,NEW.state,NEW.reviewed_by,
                 NEW.rights_statement,NEW.reviewed_utc);
             END;
+            -- Book moderation decisions are legal review evidence. Prevent ordinary
+            -- application SQL from rewriting or deleting recorded decisions.
+            CREATE TRIGGER IF NOT EXISTS anka_book_review_history_no_update
+            BEFORE UPDATE ON anka_book_review_history
+            BEGIN
+              SELECT RAISE(ABORT, 'book review audit is append-only');
+            END;
+            CREATE TRIGGER IF NOT EXISTS anka_book_review_history_no_delete
+            BEFORE DELETE ON anka_book_review_history
+            BEGIN
+              SELECT RAISE(ABORT, 'book review audit is append-only');
+            END;
             CREATE TABLE IF NOT EXISTS anka_publisher_submissions(
               id TEXT PRIMARY KEY,
               user_id TEXT NOT NULL,
