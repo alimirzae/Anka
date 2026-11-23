@@ -83,5 +83,37 @@ class PublisherApplicationAuditTests(unittest.TestCase):
         )
 
 
+    def test_application_audit_rejects_update_and_delete(self):
+        self.db.execute(
+            "INSERT INTO anka_publisher_requests(user_id,statement,requested_utc) "
+            "VALUES('u1','original declaration','2026-01-01')"
+        )
+        original = self.history()
+        for sql in (
+            "UPDATE anka_publisher_application_history SET new_statement='tampered'",
+            "DELETE FROM anka_publisher_application_history",
+        ):
+            with self.subTest(sql=sql), self.assertRaises(sqlite3.IntegrityError):
+                self.db.execute(sql)
+        self.assertEqual(self.history(), original)
+
+    def test_admin_decision_audit_rejects_update_and_delete(self):
+        self.db.execute(
+            "INSERT INTO anka_publisher_review_history"
+            "(user_id,reviewer_id,previous_state,new_state,statement,reviewed_utc) "
+            "VALUES('u1','u1','pending','rejected','test declaration','2026-01-01')"
+        )
+        for sql in (
+            "UPDATE anka_publisher_review_history SET new_state='approved'",
+            "DELETE FROM anka_publisher_review_history",
+        ):
+            with self.subTest(sql=sql), self.assertRaises(sqlite3.IntegrityError):
+                self.db.execute(sql)
+        self.assertEqual(
+            self.db.execute("SELECT new_state FROM anka_publisher_review_history").fetchone()[0],
+            "rejected",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
