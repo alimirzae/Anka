@@ -26,7 +26,7 @@ class SQLiteBackupRestoreRoundtripTests(unittest.TestCase):
                 db.commit()
                 with closing(sqlite3.connect(snapshot)) as backup:
                     db.backup(backup)
-            with closing(sqlite3.connect(snapshot) as backup, sqlite3.connect(restored)) as target:
+            with closing(sqlite3.connect(snapshot)) as backup, closing(sqlite3.connect(restored)) as target:
                 backup.backup(target)
             with closing(sqlite3.connect(restored)) as check:
                 check.execute("PRAGMA foreign_keys=ON")
