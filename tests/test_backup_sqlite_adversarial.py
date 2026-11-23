@@ -59,6 +59,33 @@ class BackupAdversarialTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.target.read_bytes(), b"keep existing snapshot")
 
+    def test_foreign_key_violation_is_rejected_without_publishing_backup(self):
+        with closing(sqlite3.connect(self.source)) as db:
+            db.execute("CREATE TABLE works (id INTEGER PRIMARY KEY)")
+            db.execute("CREATE TABLE linked_editions (id INTEGER PRIMARY KEY, work_id INTEGER REFERENCES works(id))")
+            db.execute("INSERT INTO linked_editions VALUES (1, 999)")
+            db.commit()
+        result = self.run_cli()
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("foreign-key", result.stderr)
+        self.assertFalse(self.target.exists())
+        self.assertEqual(list(self.out.iterdir()), [])
+
+    def test_backup_excludes_uncommitted_wal_changes(self):
+        with closing(sqlite3.connect(self.source, timeout=5)) as writer:
+            writer.execute("BEGIN IMMEDIATE")
+            writer.execute("INSERT INTO editions VALUES (2, 'uncommitted')")
+            result = self.run_cli()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            with closing(sqlite3.connect(self.target)) as snapshot:
+                self.assertEqual(
+                    snapshot.execute("SELECT id FROM editions ORDER BY id").fetchall(),
+                    [(1,)],
+                )
+            writer.rollback()
+        with closing(sqlite3.connect(self.source)) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM editions").fetchone()[0], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
