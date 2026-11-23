@@ -90,6 +90,28 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
               FOREIGN KEY(user_id) REFERENCES anka_users(id),
               FOREIGN KEY(reviewer_id) REFERENCES anka_users(id)
             );
+            -- Preserve each publisher application revision, including rejected requests
+            -- that are resubmitted. This audit is append-only and never removes a
+            -- previous administrator decision or its original rights statement.
+            CREATE TABLE IF NOT EXISTS anka_publisher_application_history(
+              id INTEGER PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              previous_state TEXT NOT NULL,
+              previous_statement TEXT NOT NULL,
+              new_state TEXT NOT NULL,
+              new_statement TEXT NOT NULL,
+              changed_utc TEXT NOT NULL,
+              FOREIGN KEY(user_id) REFERENCES anka_users(id)
+            );
+            CREATE TRIGGER IF NOT EXISTS anka_record_publisher_resubmission
+            BEFORE UPDATE OF statement,state ON anka_publisher_requests
+            WHEN OLD.statement IS NOT NEW.statement OR OLD.state IS NOT NEW.state
+            BEGIN
+              INSERT INTO anka_publisher_application_history(
+                user_id,previous_state,previous_statement,new_state,new_statement,changed_utc)
+              VALUES(OLD.user_id,OLD.state,OLD.statement,NEW.state,NEW.statement,
+                strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+            END;
             CREATE TABLE IF NOT EXISTS anka_book_moderation(
               book_id TEXT PRIMARY KEY,
               uploader_id TEXT NOT NULL,
