@@ -358,8 +358,19 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
         await using var cmd=db.CreateCommand();
         cmd.CommandText="""
+          -- Only approved editions may be grouped into a publicly visible work.
+          -- A pending/rejected upload cannot inherit another edition's public identity.
           UPDATE anka_editions SET work_id=@work
-          WHERE book_id=@book AND EXISTS(SELECT 1 FROM anka_works WHERE id=@work)
+          WHERE book_id=@book
+            AND EXISTS(SELECT 1 FROM books source WHERE source.id=@book
+              AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
+                WHERE m.book_id=source.id AND m.state IS NOT 'approved'))
+            AND EXISTS(SELECT 1 FROM anka_works w WHERE w.id=@work)
+            AND EXISTS(SELECT 1 FROM anka_editions target
+              JOIN books target_book ON target_book.id=target.book_id
+              WHERE target.work_id=@work
+                AND NOT EXISTS(SELECT 1 FROM anka_book_moderation m
+                  WHERE m.book_id=target.book_id AND m.state IS NOT 'approved'))
           """;
         cmd.Parameters.AddWithValue("@book",bookId);cmd.Parameters.AddWithValue("@work",targetWorkId);
         return await cmd.ExecuteNonQueryAsync()==1;
