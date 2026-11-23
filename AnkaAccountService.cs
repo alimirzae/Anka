@@ -103,6 +103,16 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
               changed_utc TEXT NOT NULL,
               FOREIGN KEY(user_id) REFERENCES anka_users(id)
             );
+            -- Capture the first application as well as later resubmissions.
+            -- This is additive: existing rows are retained and not rewritten.
+            CREATE TRIGGER IF NOT EXISTS anka_record_publisher_initial_application
+            AFTER INSERT ON anka_publisher_requests
+            BEGIN
+              INSERT INTO anka_publisher_application_history(
+                user_id,previous_state,previous_statement,new_state,new_statement,changed_utc)
+              VALUES(NEW.user_id,'none','',NEW.state,NEW.statement,
+                strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+            END;
             CREATE TRIGGER IF NOT EXISTS anka_record_publisher_resubmission
             BEFORE UPDATE OF statement,state ON anka_publisher_requests
             WHEN OLD.statement IS NOT NEW.statement OR OLD.state IS NOT NEW.state
