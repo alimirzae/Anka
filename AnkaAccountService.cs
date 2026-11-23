@@ -165,7 +165,7 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
             );
             CREATE TRIGGER IF NOT EXISTS anka_record_book_review
             AFTER UPDATE OF state ON anka_book_moderation
-            WHEN OLD.state='pending' AND NEW.state IN ('approved','rejected')
+            WHEN OLD.state <> NEW.state AND NEW.state IN ('approved','rejected')
               AND NEW.reviewed_by IS NOT NULL AND NEW.reviewed_utc IS NOT NULL
             BEGIN
               INSERT INTO anka_book_review_history(
