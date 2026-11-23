@@ -43,6 +43,27 @@ class BookReviewAuditTests(unittest.TestCase):
                 self.db.execute(sql)
         self.assertEqual(self.db.execute(query).fetchone(), expected)
 
+    def test_rereview_records_every_decision_without_noop_duplicates(self):
+        self.db.execute(
+            "UPDATE anka_book_moderation SET state='approved',reviewed_by='admin1',"
+            "reviewed_utc='2026-01-02' WHERE book_id='book1'"
+        )
+        self.db.execute(
+            "UPDATE anka_book_moderation SET state='rejected',reviewed_by='admin2',"
+            "reviewed_utc='2026-01-03' WHERE book_id='book1'"
+        )
+        self.db.execute(
+            "UPDATE anka_book_moderation SET state='rejected' WHERE book_id='book1'"
+        )
+        rows = self.db.execute(
+            "SELECT previous_state,new_state,reviewer_id "
+            "FROM anka_book_review_history WHERE book_id='book1' ORDER BY id"
+        ).fetchall()
+        self.assertEqual(rows, [
+            ('pending', 'approved', 'admin1'),
+            ('approved', 'rejected', 'admin2'),
+        ])
+
     def test_rollback_does_not_leave_review_record(self):
         self.db.execute("SAVEPOINT review")
         self.db.execute(
