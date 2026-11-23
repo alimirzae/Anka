@@ -79,6 +79,17 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
               reviewed_utc TEXT,
               FOREIGN KEY(user_id) REFERENCES anka_users(id)
             );
+            CREATE TABLE IF NOT EXISTS anka_publisher_review_history(
+              id INTEGER PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              reviewer_id TEXT NOT NULL,
+              previous_state TEXT NOT NULL,
+              new_state TEXT NOT NULL CHECK(new_state IN ('approved','rejected')),
+              statement TEXT NOT NULL,
+              reviewed_utc TEXT NOT NULL,
+              FOREIGN KEY(user_id) REFERENCES anka_users(id),
+              FOREIGN KEY(reviewer_id) REFERENCES anka_users(id)
+            );
             CREATE TABLE IF NOT EXISTS anka_book_moderation(
               book_id TEXT PRIMARY KEY,
               uploader_id TEXT NOT NULL,
@@ -251,6 +262,19 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
                 await transaction.RollbackAsync();
                 return false;
             }
+        }
+        // Record the administrator decision in the same transaction as the role change.
+        // A failed audit write must roll back the approval as well.
+        cmd.CommandText="""
+          INSERT INTO anka_publisher_review_history(
+            user_id,reviewer_id,previous_state,new_state,statement,reviewed_utc)
+          SELECT user_id,@reviewer,'pending',state,statement,reviewed_utc
+          FROM anka_publisher_requests
+          WHERE user_id=@id AND state=@state AND reviewed_utc IS NOT NULL
+          """;
+        if(await cmd.ExecuteNonQueryAsync()!=1){
+            await transaction.RollbackAsync();
+            return false;
         }
         await transaction.CommitAsync();
         return true;
