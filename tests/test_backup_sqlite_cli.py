@@ -1,5 +1,6 @@
 """End-to-end safety checks for scripts/backup_sqlite.py using disposable fixtures."""
 import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import tempfile
@@ -20,10 +21,11 @@ class BackupCliTests(unittest.TestCase):
         self.backups.mkdir()
         self.source = self.live_dir / 'anka.db'
         self.target = self.backups / 'snapshot.db'
-        with sqlite3.connect(self.source) as db:
+        with closing(sqlite3.connect(self.source)) as db:
             db.execute('PRAGMA journal_mode=WAL')
             db.execute('CREATE TABLE editions(id INTEGER PRIMARY KEY, title TEXT NOT NULL)')
             db.execute("INSERT INTO editions VALUES (1, 'approved')")
+            db.commit()
 
     def run_backup(self, destination=None):
         return subprocess.run(
@@ -35,7 +37,7 @@ class BackupCliTests(unittest.TestCase):
     def test_snapshot_roundtrip_and_no_overwrite(self):
         result = self.run_backup()
         self.assertEqual(result.returncode, 0, result.stderr)
-        with sqlite3.connect(self.target) as db:
+        with closing(sqlite3.connect(self.target)) as db:
             self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
             self.assertEqual(db.execute('SELECT title FROM editions').fetchone()[0], 'approved')
         original = self.target.read_bytes()
