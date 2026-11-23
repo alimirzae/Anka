@@ -64,6 +64,23 @@ class BookReviewAuditTests(unittest.TestCase):
             ('approved', 'rejected', 'admin2'),
         ])
 
+    def test_state_change_without_reviewer_cannot_bypass_audit(self):
+        for update in (
+            "state='approved'",
+            "state='rejected',reviewed_by='admin1'",
+            "state='approved',reviewed_utc='2026-01-02'",
+            "state='approved',reviewed_by='  ',reviewed_utc='2026-01-02'",
+            "state='unreviewed',reviewed_by='admin1',reviewed_utc='2026-01-02'",
+        ):
+            with self.subTest(update=update), self.assertRaises(sqlite3.IntegrityError):
+                self.db.execute("UPDATE anka_book_moderation SET " + update + " WHERE book_id='book1'")
+        self.assertEqual(self.db.execute(
+            "SELECT state FROM anka_book_moderation WHERE book_id='book1'"
+        ).fetchone()[0], "pending")
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM anka_book_review_history"
+        ).fetchone()[0], 0)
+
     def test_rollback_does_not_leave_review_record(self):
         self.db.execute("SAVEPOINT review")
         self.db.execute(
