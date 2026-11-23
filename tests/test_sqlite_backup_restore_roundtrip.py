@@ -3,6 +3,7 @@
 Run with: python -m unittest tests/test_sqlite_backup_restore_roundtrip.py
 """
 import sqlite3
+from contextlib import closing
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,7 +16,7 @@ class SQLiteBackupRestoreRoundtripTests(unittest.TestCase):
             source = root / "source.sqlite"
             snapshot = root / "snapshot.sqlite"
             restored = root / "restored.sqlite"
-            with sqlite3.connect(source) as db:
+            with closing(sqlite3.connect(source)) as db:
                 db.execute("PRAGMA journal_mode=WAL")
                 db.execute("PRAGMA foreign_keys=ON")
                 db.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT NOT NULL)")
@@ -23,11 +24,11 @@ class SQLiteBackupRestoreRoundtripTests(unittest.TestCase):
                 db.execute("INSERT INTO books VALUES (1, 'Fixture only')")
                 db.execute("INSERT INTO editions VALUES (2, 1, 'az-Arab')")
                 db.commit()
-                with sqlite3.connect(snapshot) as backup:
+                with closing(sqlite3.connect(snapshot)) as backup:
                     db.backup(backup)
-            with sqlite3.connect(snapshot) as backup, sqlite3.connect(restored) as target:
+            with closing(sqlite3.connect(snapshot) as backup, sqlite3.connect(restored)) as target:
                 backup.backup(target)
-            with sqlite3.connect(restored) as check:
+            with closing(sqlite3.connect(restored)) as check:
                 check.execute("PRAGMA foreign_keys=ON")
                 self.assertEqual(check.execute("PRAGMA integrity_check").fetchone()[0], "ok")
                 self.assertEqual(check.execute("PRAGMA foreign_key_check").fetchall(), [])
@@ -42,15 +43,15 @@ class SQLiteBackupRestoreRoundtripTests(unittest.TestCase):
             epub = root / "real-book-fixture.epub"
             epub.write_bytes(b"fixture EPUB bytes; never production data")
             original_epub = epub.read_bytes()
-            with sqlite3.connect(source) as db:
+            with closing(sqlite3.connect(source)) as db:
                 db.execute("CREATE TABLE marker (value TEXT)")
                 db.execute("INSERT INTO marker VALUES ('keep')")
                 db.commit()
-                with sqlite3.connect(snapshot) as backup:
+                with closing(sqlite3.connect(snapshot)) as backup:
                     db.backup(backup)
                 self.assertEqual(db.execute("SELECT value FROM marker").fetchone()[0], "keep")
             self.assertEqual(epub.read_bytes(), original_epub)
-            with sqlite3.connect(snapshot) as check:
+            with closing(sqlite3.connect(snapshot)) as check:
                 self.assertEqual(check.execute("SELECT value FROM marker").fetchone()[0], "keep")
 
 
@@ -60,19 +61,19 @@ class SQLiteBackupRestoreRoundtripTests(unittest.TestCase):
             root = Path(tmp)
             source = root / "source.sqlite"
             snapshot = root / "snapshot.sqlite"
-            with sqlite3.connect(source, timeout=5) as writer:
+            with closing(sqlite3.connect(source, timeout=5)) as writer:
                 writer.execute("PRAGMA journal_mode=WAL")
                 writer.execute("CREATE TABLE editions (id INTEGER PRIMARY KEY, title TEXT NOT NULL)")
                 writer.execute("INSERT INTO editions VALUES (1, 'committed edition')")
                 writer.commit()
                 # A second connection owns an uncommitted WAL transaction.
-                with sqlite3.connect(source, timeout=5) as pending:
+                with closing(sqlite3.connect(source, timeout=5)) as pending:
                     pending.execute("BEGIN IMMEDIATE")
                     pending.execute("INSERT INTO editions VALUES (2, 'uncommitted edition')")
-                    with sqlite3.connect(source, timeout=5) as reader:
-                        with sqlite3.connect(snapshot) as target:
+                    with closing(sqlite3.connect(source, timeout=5)) as reader:
+                        with closing(sqlite3.connect(snapshot)) as target:
                             reader.backup(target)
-                    with sqlite3.connect(snapshot) as check:
+                    with closing(sqlite3.connect(snapshot)) as check:
                         self.assertEqual(check.execute("PRAGMA integrity_check").fetchone()[0], "ok")
                         self.assertEqual(check.execute("SELECT id FROM editions ORDER BY id").fetchall(), [(1,)])
                     pending.rollback()
