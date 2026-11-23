@@ -122,6 +122,29 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
               VALUES(OLD.user_id,OLD.state,OLD.statement,NEW.state,NEW.statement,
                 strftime('%Y-%m-%dT%H:%M:%fZ','now'));
             END;
+            -- Audit rows must not be silently rewritten or deleted by application SQL.
+            -- This guards accidental tampering, not a database administrator with
+            -- direct filesystem access (who can drop triggers).
+            CREATE TRIGGER IF NOT EXISTS anka_publisher_application_history_no_update
+            BEFORE UPDATE ON anka_publisher_application_history
+            BEGIN
+              SELECT RAISE(ABORT, 'publisher application audit is append-only');
+            END;
+            CREATE TRIGGER IF NOT EXISTS anka_publisher_application_history_no_delete
+            BEFORE DELETE ON anka_publisher_application_history
+            BEGIN
+              SELECT RAISE(ABORT, 'publisher application audit is append-only');
+            END;
+            CREATE TRIGGER IF NOT EXISTS anka_publisher_review_history_no_update
+            BEFORE UPDATE ON anka_publisher_review_history
+            BEGIN
+              SELECT RAISE(ABORT, 'publisher review audit is append-only');
+            END;
+            CREATE TRIGGER IF NOT EXISTS anka_publisher_review_history_no_delete
+            BEFORE DELETE ON anka_publisher_review_history
+            BEGIN
+              SELECT RAISE(ABORT, 'publisher review audit is append-only');
+            END;
             CREATE TABLE IF NOT EXISTS anka_book_moderation(
               book_id TEXT PRIMARY KEY,
               uploader_id TEXT NOT NULL,
