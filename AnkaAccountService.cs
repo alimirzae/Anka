@@ -163,6 +163,17 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
               rights_statement TEXT NOT NULL,
               reviewed_utc TEXT NOT NULL
             );
+            -- A moderation state change must never bypass the decision audit by
+            -- omitting reviewer metadata. Legacy pending rows remain untouched.
+            CREATE TRIGGER IF NOT EXISTS anka_require_book_review_identity
+            BEFORE UPDATE OF state ON anka_book_moderation
+            WHEN OLD.state IS NOT NEW.state
+              AND (NEW.state NOT IN ('approved','rejected')
+                OR NEW.reviewed_by IS NULL OR length(trim(NEW.reviewed_by))=0
+                OR NEW.reviewed_utc IS NULL OR length(trim(NEW.reviewed_utc))=0)
+            BEGIN
+              SELECT RAISE(ABORT, 'book review requires a recorded reviewer and timestamp');
+            END;
             CREATE TRIGGER IF NOT EXISTS anka_record_book_review
             AFTER UPDATE OF state ON anka_book_moderation
             WHEN OLD.state <> NEW.state AND NEW.state IN ('approved','rejected')
