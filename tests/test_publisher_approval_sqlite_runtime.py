@@ -30,7 +30,7 @@ class PublisherApprovalSqliteTests(unittest.TestCase):
     def decide(self, user_id, approve=True):
         state = "approved" if approve else "rejected"
         with self.db:
-            result = self.db.execute(REQUEST_SQL, {"id": user_id, "state": state})
+            result = self.db.execute(REQUEST_SQL, {"id": user_id, "state": state, "reviewer": "admin"})
             if result.rowcount != 1:
                 return False
             if approve:
