@@ -6,6 +6,7 @@ Run on the IIS host with read access to the source and write access to a separat
 This tool does NOT back up EPUBs or DataProtection keys; back those up separately.
 """
 import argparse
+from contextlib import closing
 import os
 import sqlite3
 import sys
@@ -33,8 +34,8 @@ def backup(source: Path, destination: Path) -> None:
     try:
         # mode=ro prevents creating or mutating the source database.
         source_uri = source.as_uri() + "?mode=ro"
-        with sqlite3.connect(source_uri, uri=True, timeout=30) as live:
-            with sqlite3.connect(temporary, timeout=30) as snapshot:
+        with closing(sqlite3.connect(source_uri, uri=True, timeout=30)) as live:
+            with closing(sqlite3.connect(temporary, timeout=30)) as snapshot:
                 live.backup(snapshot, pages=256, sleep=0.1)
                 if snapshot.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                     raise RuntimeError("Backup integrity check failed")
