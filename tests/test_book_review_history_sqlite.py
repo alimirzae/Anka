@@ -21,6 +21,7 @@ class ReviewHistoryTests(unittest.TestCase):
         self.db.execute("INSERT INTO books VALUES('book')")
         self.db.execute("INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,created_utc) VALUES(?,?,?,?)",
                         ("book", "publisher", "Valid rights declaration", "now"))
+        self.db.execute("INSERT INTO anka_book_rights_evidence(id,book_id,uploader_id,pdf_bytes,created_utc) VALUES(?,?,?,?,?)", ("evidence", "book", "publisher", b"%PDF-test", "now"))
         self.db.commit()
         self.sql = re.search(r'cmd\.CommandText="(UPDATE anka_book_moderation SET state=.*?)";', SOURCE).group(1)
 
