@@ -285,6 +285,13 @@ app.MapPost("/api/publisher/submissions/{id:guid}/evidence",async(Guid id,HttpCo
     var evidenceId=await accounts.AddBookRightsEvidenceAsync(id.ToString(),actor,buffer.ToArray());
     return evidenceId is null?Results.BadRequest(new{error="Evidence rejected."}):Results.Ok(new{id=evidenceId});
 }).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin")).RequireRateLimiting("account");
+app.MapGet("/api/publisher/submissions/{id:guid}/evidence",async(Guid id,HttpContext context,AnkaAccountService accounts)=>{
+    var actor=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(actor is null)return Results.Unauthorized();
+    if(!await accounts.IsCurrentRoleAsync(actor,"Publisher") && !await accounts.IsCurrentRoleAsync(actor,"Admin"))return Results.Forbid();
+    context.Response.Headers["Cache-Control"]="private, no-store";
+    return Results.Ok(await accounts.ListBookRightsEvidenceAsync(id.ToString(),actor));
+}).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin")).RequireRateLimiting("account");
 app.MapGet("/api/publisher/evidence/{id:guid}",async(Guid id,HttpContext context,AnkaAccountService accounts)=>{
     var actor=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if(actor is null)return Results.Unauthorized();
