@@ -17,6 +17,8 @@ class RightsApprovalSqliteTests(unittest.TestCase):
           CREATE TABLE anka_users(id TEXT PRIMARY KEY,role TEXT,disabled INTEGER);
           CREATE TABLE anka_book_moderation(book_id TEXT PRIMARY KEY,uploader_id TEXT,
             rights_statement TEXT,state TEXT,reviewed_by TEXT,reviewed_utc TEXT);
+          CREATE TABLE anka_book_rights_evidence(id TEXT PRIMARY KEY, book_id TEXT NOT NULL, uploader_id TEXT NOT NULL, pdf_bytes BLOB NOT NULL CHECK(length(pdf_bytes) BETWEEN 5 AND 5242880), created_utc TEXT NOT NULL);
+          INSERT INTO anka_book_rights_evidence VALUES('evidence','book','publisher',X'255044462D','now');
           INSERT INTO anka_users VALUES('admin','Admin',0),('publisher','Publisher',0),
             ('reader','Reader',0),('disabled','Publisher',1);
         """)
