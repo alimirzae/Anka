@@ -449,6 +449,25 @@ public sealed class AnkaAccountService(IWebHostEnvironment env)
         cmd.Parameters.AddWithValue("@id",evidenceId);cmd.Parameters.AddWithValue("@actor",actorId);
         return await cmd.ExecuteScalarAsync() as byte[];
     }
+    // Metadata only: never return private PDF bytes in submission lists.
+    public async Task<IReadOnlyList<string>> ListBookRightsEvidenceAsync(string bookId,string actorId)
+    {
+        var result=new List<string>();
+        await using var db=new SqliteConnection(Connection);await db.OpenAsync();
+        await using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+          SELECT e.id FROM anka_book_rights_evidence e
+          JOIN anka_book_moderation m ON m.book_id=e.book_id
+          JOIN anka_users u ON u.id=@actor
+          WHERE m.book_id=@book AND u.disabled=0
+            AND (u.role='Admin' OR (u.role='Publisher' AND m.uploader_id=u.id AND e.uploader_id=u.id))
+          ORDER BY e.created_utc,e.id
+          """;
+        cmd.Parameters.AddWithValue("@book",bookId);cmd.Parameters.AddWithValue("@actor",actorId);
+        await using var reader=await cmd.ExecuteReaderAsync();
+        while(await reader.ReadAsync())result.Add(reader.GetString(0));
+        return result;
+    }
     public async Task<bool> ReviewBookAsync(string bookId,string reviewerId,bool approve)
     {
         await using var db=new SqliteConnection(Connection);await db.OpenAsync();
