@@ -265,6 +265,35 @@ app.MapGet("/api/publisher/my-submissions",async(HttpContext context,AnkaAccount
        !await accounts.IsCurrentRoleAsync(userId,"Admin"))return Results.Forbid();
     return Results.Ok(await accounts.MyBookSubmissionsAsync(userId));
 }).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin")).RequireRateLimiting("account");
+// Raw PDF upload: bounded streaming avoids buffering arbitrary multipart bodies.
+app.MapPost("/api/publisher/submissions/{id:guid}/evidence",async(Guid id,HttpContext context,AnkaAccountService accounts)=>{
+    if(!SameOrigin(context.Request))return Results.StatusCode(403);
+    var actor=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(actor is null)return Results.Unauthorized();
+    if(!await accounts.IsCurrentRoleAsync(actor,"Publisher") && !await accounts.IsCurrentRoleAsync(actor,"Admin"))return Results.Forbid();
+    const int limit=5*1024*1024;
+    if(!string.Equals(context.Request.ContentType,"application/pdf",StringComparison.OrdinalIgnoreCase))
+        return Results.StatusCode(415);
+    if(context.Request.ContentLength>limit)return Results.StatusCode(413);
+    using var buffer=new MemoryStream();
+    var chunk=new byte[81920];
+    int count;
+    while((count=await context.Request.Body.ReadAsync(chunk.AsMemory(),context.RequestAborted))!=0){
+        if(buffer.Length+count>limit)return Results.StatusCode(413);
+        buffer.Write(chunk,0,count);
+    }
+    var evidenceId=await accounts.AddBookRightsEvidenceAsync(id.ToString(),actor,buffer.ToArray());
+    return evidenceId is null?Results.BadRequest(new{error="Evidence rejected."}):Results.Ok(new{id=evidenceId});
+}).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin")).RequireRateLimiting("account");
+app.MapGet("/api/publisher/evidence/{id:guid}",async(Guid id,HttpContext context,AnkaAccountService accounts)=>{
+    var actor=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if(actor is null)return Results.Unauthorized();
+    var pdf=await accounts.ReadBookRightsEvidenceAsync(id.ToString("N"),actor);
+    if(pdf is null)return Results.NotFound();
+    context.Response.Headers["Cache-Control"]="private, no-store";
+    context.Response.Headers["Content-Security-Policy"]="sandbox; default-src 'none'";
+    return Results.File(pdf,"application/pdf",fileDownloadName:"rights-evidence.pdf");
+}).RequireAuthorization(policy=>policy.RequireRole("Publisher","Admin")).RequireRateLimiting("account");
 app.MapGet("/api/admin/submissions",async(HttpContext context,AnkaAccountService accounts)=>{
     var admin=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if(admin is null||!await accounts.IsCurrentRoleAsync(admin,"Admin"))return Results.Forbid();
