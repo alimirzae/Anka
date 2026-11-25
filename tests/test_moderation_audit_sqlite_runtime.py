@@ -17,6 +17,8 @@ class ModerationAuditTests(unittest.TestCase):
           CREATE TABLE anka_users(id TEXT PRIMARY KEY,role TEXT,disabled INTEGER);
           CREATE TABLE anka_book_moderation(book_id TEXT PRIMARY KEY,uploader_id TEXT,
             rights_statement TEXT,state TEXT,reviewed_by TEXT,reviewed_utc TEXT);
+          CREATE TABLE anka_book_rights_evidence(id TEXT PRIMARY KEY,book_id TEXT,uploader_id TEXT,pdf_bytes BLOB,created_utc TEXT);
+          INSERT INTO anka_book_rights_evidence VALUES('evidence','book','publisher',X'255044462D74657374','now');
           INSERT INTO anka_users VALUES('admin','Admin',0),('publisher','Publisher',0),
             ('reader','Reader',0);
           INSERT INTO anka_book_moderation(book_id,uploader_id,rights_statement,state)
@@ -45,6 +47,13 @@ class ModerationAuditTests(unittest.TestCase):
         self.assertEqual(changed, 1)
         self.assertEqual(record[0:2], ("approved", "admin"))
         self.assertRegex(record[2], r"^\d{4}-\d{2}-\d{2}T")
+
+    def test_missing_or_foreign_evidence_cannot_stamp_approval(self):
+        self.db.execute("DELETE FROM anka_book_rights_evidence")
+        self.assertEqual(self.attempt("admin", "approved"), (0, ("pending", None, None)))
+        self.db.execute("INSERT INTO anka_book_rights_evidence VALUES(?,?,?,?,?)",
+                        ("foreign", "book", "reader", b"%PDF-test", "now"))
+        self.assertEqual(self.attempt("admin", "approved"), (0, ("pending", None, None)))
 
     def test_disabled_admin_cannot_stamp_audit(self):
         self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='admin'")
