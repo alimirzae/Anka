@@ -24,6 +24,12 @@ class BookApprovalSqliteRuntime(unittest.TestCase):
                 book_id TEXT PRIMARY KEY, uploader_id TEXT, rights_statement TEXT,
                 state TEXT, reviewed_by TEXT, reviewed_utc TEXT
             );
+            CREATE TABLE anka_book_rights_evidence(
+                id TEXT PRIMARY KEY, book_id TEXT NOT NULL,
+                uploader_id TEXT NOT NULL,
+                pdf_bytes BLOB NOT NULL CHECK(length(pdf_bytes) BETWEEN 5 AND 5242880),
+                created_utc TEXT NOT NULL
+            );
             INSERT INTO anka_users VALUES
               ('admin','Admin',0),('inactive_admin','Admin',1),
               ('reader','Reader',0),('publisher','Publisher',0),
@@ -34,6 +40,11 @@ class BookApprovalSqliteRuntime(unittest.TestCase):
                      ('short','publisher','none','pending'),
                      ('inactive','inactive_publisher','Rights granted for this book','pending'),
                      ('missing','publisher','Rights granted for this book','pending');
+            INSERT INTO anka_book_rights_evidence VALUES
+                ('e1','valid','publisher',X'255044462D','now'),
+                ('e2','short','publisher',X'255044462D','now'),
+                ('e3','inactive','inactive_publisher',X'255044462D','now'),
+                ('e4','missing','publisher',X'255044462D','now');
             DELETE FROM books WHERE id='missing';
         """)
 
@@ -56,6 +67,15 @@ class BookApprovalSqliteRuntime(unittest.TestCase):
             with self.subTest(book=book):
                 self.assertEqual(self.review(book, "admin", "approved"), 0)
                 self.assertEqual(self.db.execute("SELECT state FROM anka_book_moderation WHERE book_id=?", (book,)).fetchone()[0], "pending")
+
+    def test_missing_evidence_blocks_approval(self):
+        self.db.execute("DELETE FROM anka_book_rights_evidence WHERE book_id='valid'")
+        self.assertEqual(self.review("valid", "admin", "approved"), 0)
+        self.assertEqual(self.review("valid", "admin", "rejected"), 1)
+
+    def test_evidence_from_other_uploader_blocks_approval(self):
+        self.db.execute("UPDATE anka_book_rights_evidence SET uploader_id='reader' WHERE book_id='valid'")
+        self.assertEqual(self.review("valid", "admin", "approved"), 0)
 
     def test_rejection_requires_admin_and_existing_book(self):
         self.assertEqual(self.review("short", "reader", "rejected"), 0)
