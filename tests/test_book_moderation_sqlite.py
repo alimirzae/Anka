@@ -26,6 +26,12 @@ class BookModerationSqlTests(unittest.TestCase):
                 book_id TEXT PRIMARY KEY, uploader_id TEXT, rights_statement TEXT,
                 state TEXT, reviewed_by TEXT, created_utc TEXT, reviewed_utc TEXT
             );
+            CREATE TABLE anka_book_rights_evidence(
+                id TEXT PRIMARY KEY, book_id TEXT NOT NULL,
+                uploader_id TEXT NOT NULL,
+                pdf_bytes BLOB NOT NULL CHECK(length(pdf_bytes) BETWEEN 5 AND 5242880),
+                created_utc TEXT NOT NULL
+            );
             CREATE TABLE anka_book_review_history(
                 id INTEGER PRIMARY KEY, book_id TEXT, previous_state TEXT,
                 new_state TEXT, reviewer_id TEXT, rights_statement TEXT, reviewed_utc TEXT
@@ -41,6 +47,9 @@ class BookModerationSqlTests(unittest.TestCase):
                 NEW.rights_statement,NEW.reviewed_utc);
             END;
             INSERT INTO books VALUES('book');
+            INSERT INTO anka_book_rights_evidence VALUES(
+                'evidence','book','uploader',X'255044462D','now'
+            );
             INSERT INTO anka_users VALUES('uploader','Publisher',0);
             INSERT INTO anka_users VALUES('admin','Admin',0);
             INSERT INTO anka_book_moderation VALUES(
@@ -59,6 +68,15 @@ class BookModerationSqlTests(unittest.TestCase):
         self.assertEqual(self.db.execute(
             "SELECT new_state,reviewer_id FROM anka_book_review_history"
         ).fetchall(), [("approved", "admin")])
+
+    def test_missing_evidence_blocks_approval_but_not_rejection(self):
+        self.db.execute("DELETE FROM anka_book_rights_evidence")
+        self.assertEqual(self.review(), 0)
+        self.assertEqual(self.review("rejected"), 1)
+
+    def test_other_uploaders_evidence_cannot_authorize_approval(self):
+        self.db.execute("UPDATE anka_book_rights_evidence SET uploader_id='admin'")
+        self.assertEqual(self.review(), 0)
 
     def test_active_admin_can_reject(self):
         self.assertEqual(self.review("rejected"), 1)
