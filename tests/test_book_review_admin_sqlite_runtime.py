@@ -35,6 +35,14 @@ class BookReviewAuthorizationTests(unittest.TestCase):
                 book_id TEXT PRIMARY KEY, state TEXT NOT NULL,
                 rights_statement TEXT, uploader_id TEXT,
                 reviewed_by TEXT, reviewed_utc TEXT);
+            CREATE TABLE anka_book_rights_evidence(
+                id TEXT PRIMARY KEY, book_id TEXT NOT NULL,
+                uploader_id TEXT NOT NULL, pdf_bytes BLOB NOT NULL,
+                created_utc TEXT NOT NULL);
+            INSERT INTO anka_book_rights_evidence VALUES
+                ('e1','pending','publisher',X'255044462D74657374','now'),
+                ('e2','no_rights','publisher',X'255044462D74657374','now'),
+                ('e3','no_uploader','missing',X'255044462D74657374','now');
             INSERT INTO anka_users(id,role,disabled) VALUES
                 ('admin','Admin',0),('second_admin','Admin',0),('disabled_admin','Admin',1),
                 ('reader','Reader',0),('publisher','Publisher',0);
@@ -81,6 +89,15 @@ class BookReviewAuthorizationTests(unittest.TestCase):
                 self.assertEqual(0, self.review(book, 'admin'))
                 self.assertEqual(('pending', None), self.state(book))
 
+    def test_approval_requires_matching_evidence(self):
+        self.db.execute("DELETE FROM anka_book_rights_evidence WHERE book_id='pending'")
+        self.assertEqual(0, self.review("pending", "admin"))
+        self.db.execute("INSERT INTO anka_book_rights_evidence VALUES(?,?,?,?,?)",
+                        ("foreign", "pending", "reader", b"%PDF-test", "now"))
+        self.assertEqual(0, self.review("pending", "admin"))
+        self.assertEqual(("pending", None), self.state("pending"))
+        self.assertEqual(1, self.review("pending", "admin", "rejected"))
+
     def test_rejection_allowed_without_valid_rights(self):
         self.assertEqual(1, self.review('no_rights', 'admin', 'rejected'))
         self.assertEqual(('rejected', 'admin'), self.state('no_rights'))
@@ -111,6 +128,7 @@ class BookReviewAuthorizationTests(unittest.TestCase):
         self.db.execute(
             "UPDATE anka_book_moderation SET uploader_id='admin' WHERE book_id='pending'"
         )
+        self.db.execute("UPDATE anka_book_rights_evidence SET uploader_id='admin' WHERE book_id='pending'")
         self.assertEqual(0, self.review("pending", "admin"))
         self.assertEqual(("pending", None), self.state("pending"))
         self.db.execute("UPDATE anka_users SET disabled=1 WHERE id='admin'")
