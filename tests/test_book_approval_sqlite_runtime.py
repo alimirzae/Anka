@@ -68,6 +68,20 @@ class BookApprovalSqliteRuntime(unittest.TestCase):
                 self.assertEqual(self.review(book, "admin", "approved"), 0)
                 self.assertEqual(self.db.execute("SELECT state FROM anka_book_moderation WHERE book_id=?", (book,)).fetchone()[0], "pending")
 
+    def test_admin_cannot_review_own_submission(self):
+        self.db.execute("UPDATE anka_book_moderation SET uploader_id='admin' WHERE book_id='valid'")
+        self.db.execute("UPDATE anka_book_rights_evidence SET uploader_id='admin' WHERE book_id='valid'")
+        for state in ("approved", "rejected"):
+            self.assertEqual(self.review("valid", "admin", state), 0)
+        self.assertEqual(self.db.execute("SELECT state,reviewed_by FROM anka_book_moderation WHERE book_id='valid'").fetchone(), ("pending", None))
+        self.db.execute("INSERT INTO anka_users VALUES ('second_admin','Admin',0)")
+        self.assertEqual(self.review("valid", "second_admin", "approved"), 1)
+
+    def test_revoked_publisher_cannot_be_approved(self):
+        self.db.execute("UPDATE anka_users SET role='Reader' WHERE id='publisher'")
+        self.assertEqual(self.review("valid", "admin", "approved"), 0)
+        self.assertEqual(self.review("valid", "admin", "rejected"), 1)
+
     def test_missing_evidence_blocks_approval(self):
         self.db.execute("DELETE FROM anka_book_rights_evidence WHERE book_id='valid'")
         self.assertEqual(self.review("valid", "admin", "approved"), 0)
