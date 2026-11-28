@@ -377,7 +377,7 @@ app.MapGet("/api/books", async () =>
         SELECT b.id,b.title,b.author,b.language,b.original_script,b.bytes,COALESCE(w.category,'General')
         FROM books b LEFT JOIN anka_editions e ON e.book_id=b.id
         LEFT JOIN anka_works w ON w.id=e.work_id
-        WHERE NOT EXISTS (SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state!='approved')
+        WHERE NOT EXISTS (SELECT 1 FROM anka_book_moderation m WHERE m.book_id=b.id AND m.state IS NOT 'approved')
         ORDER BY b.created_utc DESC
         """, db);
     await using var r = await cmd.ExecuteReaderAsync();
